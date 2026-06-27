@@ -137,6 +137,20 @@ class PocketDownloadedFile {
   final String contentType;
 }
 
+class PocketSavedDownload {
+  PocketSavedDownload({
+    required this.filename,
+    required this.path,
+    required this.contentType,
+    required this.bytesWritten,
+  });
+
+  final String filename;
+  final String path;
+  final String contentType;
+  final int bytesWritten;
+}
+
 String _requiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {

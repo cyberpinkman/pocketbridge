@@ -420,6 +420,89 @@ void main() {
     },
   );
 
+  test('downloadToDirectory streams bytes to a unique local file', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'pocketbridge-download-test-',
+    );
+    await File('${directory.path}/Report.pdf').writeAsString('existing');
+    final progress = <int>[];
+
+    try {
+      final api = PocketBridgeApi(
+        _pairing(),
+        client: MockClient.streaming((request, _) async {
+          expect(
+            request.url.toString(),
+            'http://mac.local:3000/api/items/itm_1782547200000_b7e2c31a/download',
+          );
+          expect(request.headers['X-PocketBridge-Pair-Code'], '123456');
+
+          return http.StreamedResponse(
+            Stream.fromIterable([
+              [1, 2],
+              [3],
+            ]),
+            200,
+            contentLength: 3,
+            headers: {
+              'content-disposition': 'attachment; filename="Report.pdf"',
+              'content-type': 'application/pdf',
+            },
+          );
+        }),
+      );
+
+      final saved = await api.downloadToDirectory(
+        PocketItem.fromJson(_fileItemJson()),
+        directory,
+        onProgress: (receivedBytes, _) => progress.add(receivedBytes),
+      );
+
+      expect(saved.filename, 'Report (1).pdf');
+      expect(saved.bytesWritten, 3);
+      expect(saved.contentType, 'application/pdf');
+      expect(await File(saved.path).readAsBytes(), [1, 2, 3]);
+      expect(
+        await File('${directory.path}/Report.pdf').readAsString(),
+        'existing',
+      );
+      expect(progress, [0, 2, 3]);
+    } finally {
+      await directory.delete(recursive: true);
+    }
+  });
+
+  test('downloadToDirectory rejects dot-only filenames from headers', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'pocketbridge-download-test-',
+    );
+
+    try {
+      final api = PocketBridgeApi(
+        _pairing(),
+        client: MockClient.streaming((_, _) async {
+          return http.StreamedResponse(
+            Stream.value([9]),
+            200,
+            contentLength: 1,
+            headers: {'content-disposition': 'attachment; filename=".."'},
+          );
+        }),
+      );
+
+      final saved = await api.downloadToDirectory(
+        PocketItem.fromJson(_fileItemJson()),
+        directory,
+      );
+
+      expect(saved.filename, 'pocketbridge-download');
+      expect(saved.path, '${directory.path}/pocketbridge-download');
+      expect(await File(saved.path).readAsBytes(), [9]);
+    } finally {
+      await directory.delete(recursive: true);
+    }
+  });
+
   test('websocketUri includes pair code and mobile client query params', () {
     final uri = PocketBridgeApi(_pairing()).websocketUri();
 

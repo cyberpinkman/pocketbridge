@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -378,34 +377,11 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   Future<void> _downloadItem(PocketItem item) async {
     final api = _requireApi();
     await _run(() async {
-      final downloaded = await api.download(item);
-      final safeName = _safeFilename(downloaded.filename);
-      final savedPath = await _saveDownloadedFile(safeName, downloaded);
-      if (savedPath == null) {
-        _showSnack('Download cancelled');
-        return;
-      }
-
-      _showSnack('Downloaded: $safeName');
-      unawaited(OpenFilex.open(savedPath, type: downloaded.contentType));
-    });
-  }
-
-  Future<String?> _saveDownloadedFile(
-    String filename,
-    PocketDownloadedFile downloaded,
-  ) async {
-    try {
-      return await FilePicker.platform.saveFile(
-        fileName: filename,
-        bytes: Uint8List.fromList(downloaded.bytes),
-      );
-    } on UnimplementedError {
       final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/$filename');
-      await file.writeAsBytes(downloaded.bytes, flush: true);
-      return file.path;
-    }
+      final downloaded = await api.downloadToDirectory(item, directory);
+      _showSnack('Downloaded: ${downloaded.filename}');
+      unawaited(OpenFilex.open(downloaded.path, type: downloaded.contentType));
+    });
   }
 
   Future<void> _run(Future<void> Function() action, {bool busy = true}) async {
@@ -1111,11 +1087,6 @@ String _eventType(Object? message) {
     return '';
   }
   return '';
-}
-
-String _safeFilename(String name) {
-  final cleaned = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
-  return cleaned.isEmpty ? 'pocketbridge-download' : cleaned;
 }
 
 String _message(Object error) {

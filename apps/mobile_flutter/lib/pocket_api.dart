@@ -195,6 +195,69 @@ class PocketBridgeApi {
     );
   }
 
+  Future<PocketSavedDownload> downloadToDirectory(
+    PocketItem item,
+    Directory directory, {
+    void Function(int receivedBytes, int totalBytes)? onProgress,
+  }) async {
+    final downloadUrl = item.downloadUrl;
+    if (downloadUrl == null || downloadUrl.isEmpty) {
+      throw PocketApiException('Item has no download URL');
+    }
+
+    await directory.create(recursive: true);
+    final request = http.Request('GET', _uri(downloadUrl))
+      ..headers.addAll(_authHeaders);
+    final streamed = await _client.send(request);
+    if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
+      final body = await streamed.stream.bytesToString();
+      throw PocketApiException(
+        _errorMessageFromBody(body, streamed.reasonPhrase),
+        statusCode: streamed.statusCode,
+      );
+    }
+
+    final filename = _safeFilename(
+      _filenameFromHeaders(streamed.headers) ??
+          item.originalFilename ??
+          item.title,
+    );
+    final target = await _uniqueDownloadFile(directory, filename);
+    final sink = target.openWrite();
+    final totalBytes = streamed.contentLength ?? -1;
+    var receivedBytes = 0;
+    onProgress?.call(0, totalBytes);
+
+    try {
+      await for (final chunk in streamed.stream) {
+        receivedBytes += chunk.length;
+        sink.add(chunk);
+        onProgress?.call(receivedBytes, totalBytes);
+      }
+      await sink.close();
+    } catch (_) {
+      try {
+        await sink.close();
+      } catch (_) {
+        // Preserve the original download failure.
+      }
+      try {
+        await target.delete();
+      } catch (_) {
+        // Best-effort cleanup of partial downloads.
+      }
+      rethrow;
+    }
+
+    return PocketSavedDownload(
+      filename: _basename(target.path),
+      path: target.path,
+      contentType:
+          streamed.headers['content-type'] ?? 'application/octet-stream',
+      bytesWritten: receivedBytes,
+    );
+  }
+
   Uri websocketUri() {
     final uri = Uri.parse(pairing.wsUrl);
     return uri.replace(
@@ -317,6 +380,36 @@ MediaType? _mediaTypeFor(PlatformFile file) {
   final parts = mimeType.split('/');
   if (parts.length != 2) return null;
   return MediaType(parts[0], parts[1]);
+}
+
+Future<File> _uniqueDownloadFile(Directory directory, String filename) async {
+  var candidate = File('${directory.path}/$filename');
+  if (!await candidate.exists()) return candidate;
+
+  final dot = filename.lastIndexOf('.');
+  final hasExtension = dot > 0 && dot < filename.length - 1;
+  final stem = hasExtension ? filename.substring(0, dot) : filename;
+  final extension = hasExtension ? filename.substring(dot) : '';
+  for (var index = 1; index < 1000; index += 1) {
+    candidate = File('${directory.path}/$stem ($index)$extension');
+    if (!await candidate.exists()) return candidate;
+  }
+  throw PocketApiException('Could not create a unique download filename');
+}
+
+String _safeFilename(String name) {
+  final cleaned = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+  if (cleaned.isEmpty || RegExp(r'^\.+$').hasMatch(cleaned)) {
+    return 'pocketbridge-download';
+  }
+  return cleaned;
+}
+
+String _basename(String path) {
+  final slash = path.lastIndexOf('/');
+  final backslash = path.lastIndexOf(r'\');
+  final separator = slash > backslash ? slash : backslash;
+  return separator == -1 ? path : path.substring(separator + 1);
 }
 
 String? _filenameFromHeaders(Map<String, String> headers) {
