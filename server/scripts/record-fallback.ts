@@ -215,9 +215,21 @@ try {
   await waitForText(mobile.locator("#status"), "Upload text complete", "mobile fallback upload");
   await waitForText(mac.locator("#items"), /Fallback recording note/, "Mac inbox fallback item");
   await page.waitForTimeout(700);
-  log("recording fallback upload");
+  log("recording fallback text upload");
 
-  await mac.getByRole("button", { name: "Save" }).click();
+  await mobile.locator("#fileInput").setInputFiles({
+    name: "recorded-fallback-file.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("recorded browser fallback file upload")
+  });
+  await page.waitForTimeout(300);
+  await mobile.getByRole("button", { name: "Upload file" }).click();
+  await waitForText(mobile.locator("#status"), "Upload file complete", "mobile fallback file upload");
+  await waitForText(mac.locator("#items"), /recorded-fallback-file\.txt/, "Mac inbox fallback file item");
+  await page.waitForTimeout(700);
+  log("recording fallback file upload");
+
+  await mac.getByRole("button", { name: "Save" }).first().click();
   await waitForText(mac.locator("#status"), "Save complete", "Mac knowledge save");
   await waitForText(mac.locator("#items"), /obsidian\/PocketBridge\/.*\.md/, "knowledge path in Mac UI");
   await page.waitForTimeout(700);

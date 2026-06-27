@@ -175,6 +175,19 @@ try {
   assert.deepEqual(macPageErrors, []);
   log("PocketInbox delete removed item");
 
+  await mobilePage.locator("#fileInput").setInputFiles({
+    name: "fallback-upload.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Fallback browser file upload.")
+  });
+  await mobilePage.getByRole("button", { name: "Upload file" }).click();
+  await mobilePage.waitForFunction(() => document.querySelector("#status")?.textContent === "Upload file complete");
+  await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("fallback-upload.txt"));
+  assert.match(await macPage.locator("#items").innerText(), /file \/ mobile/);
+  assert.deepEqual(macPageErrors, []);
+  assert.deepEqual(mobilePageErrors, []);
+  log("Mobile fallback file appeared in PocketInbox");
+
   await waitForWatcherReady(runtime.watcher);
   await fs.writeFile(path.join(cfg.snapzyWatchDir, "snapzy-ui.png"), "png");
   await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("snapzy-ui.png"));
