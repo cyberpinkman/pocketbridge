@@ -1,7 +1,7 @@
 const state = {
   pairing: null,
   socket: null,
-  sourceDevice: navigator.userAgent.includes("iPhone") ? "PocketBridge iPhone" : "PocketBridge Phone"
+  sourceDevice: sourceDeviceName()
 };
 
 const els = {
@@ -15,6 +15,12 @@ const els = {
   items: document.querySelector("#items"),
   refresh: document.querySelector("#refresh")
 };
+
+function sourceDeviceName() {
+  if (navigator.userAgent.includes("Android")) return "PocketBridge Android";
+  if (navigator.userAgent.includes("iPhone")) return "PocketBridge iPhone";
+  return "PocketBridge Phone";
+}
 
 function headers(json = true) {
   return {
@@ -38,6 +44,11 @@ async function api(path, options = {}) {
   }
 
   return response.json();
+}
+
+async function responseError(response, fallback = "Request failed") {
+  const payload = await response.json().catch(() => ({ error: { message: response.statusText } }));
+  return new Error(payload.error?.message || response.statusText || fallback);
 }
 
 function setStatus(text) {
@@ -73,21 +84,32 @@ async function runAction(label, target, action) {
 
 async function loadPairing() {
   const response = await fetch("/api/pairing");
+  if (!response.ok) {
+    throw await responseError(response, "Pairing failed");
+  }
   state.pairing = await response.json();
   els.deviceName.textContent = state.pairing.deviceName;
 }
 
 function connectSocket() {
   const url = `${state.pairing.wsUrl}?pairCode=${encodeURIComponent(state.pairing.pairCode)}&client=mobile`;
-  state.socket = new WebSocket(url);
-  state.socket.addEventListener("open", () => setStatus("Connected"));
-  state.socket.addEventListener("close", () => {
+  const socket = new WebSocket(url);
+  state.socket = socket;
+  socket.addEventListener("open", () => setStatus("Connected"));
+  socket.addEventListener("close", () => {
+    if (state.socket !== socket) return;
     setStatus("Disconnected");
     window.setTimeout(connectSocket, 1500);
   });
-  state.socket.addEventListener("message", (event) => {
-    const payload = JSON.parse(event.data);
-    if (["item.created", "item.updated", "item.shared", "knowledge.saved"].includes(payload.type)) {
+  socket.addEventListener("message", (event) => {
+    let payload;
+    try {
+      payload = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+
+    if (["item.created", "item.updated", "item.shared", "item.deleted", "knowledge.saved"].includes(payload.type)) {
       void loadSharedItems();
     }
   });
@@ -144,13 +166,19 @@ els.refresh.addEventListener("click", () => runAction("Refresh", els.refresh, lo
 
 els.textForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const text = els.textBody.value.trim();
+  if (!text) {
+    setStatus("Text is required");
+    return;
+  }
+
   await runAction("Upload text", els.textForm, async () => {
     await api("/api/items/text", {
       method: "POST",
       headers: headers(),
       body: JSON.stringify({
         title: els.textTitle.value || "Phone note",
-        text: els.textBody.value,
+        text,
         origin: "mobile",
         sourceDevice: state.sourceDevice,
         tags: ["mobile"]
@@ -170,6 +198,7 @@ els.fileForm.addEventListener("submit", async (event) => {
     form.append("file", file);
     form.append("origin", "mobile");
     form.append("sourceDevice", state.sourceDevice);
+    form.append("tags", JSON.stringify(["mobile"]));
 
     const response = await fetch(`${state.pairing.serverBaseUrl}/api/items/upload`, {
       method: "POST",
@@ -177,7 +206,7 @@ els.fileForm.addEventListener("submit", async (event) => {
       body: form
     });
 
-    if (!response.ok) throw new Error("Upload failed");
+    if (!response.ok) throw await responseError(response, "Upload failed");
     els.fileForm.reset();
   });
 });
