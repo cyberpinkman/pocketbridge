@@ -10,6 +10,8 @@ type MetadataFile = {
 };
 
 const randomIdSuffix = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 8);
+const BACKUP_SUFFIX = ".bak";
+const TEMP_SUFFIX = ".tmp";
 
 export type CreateTextItemInput = {
   title: string;
@@ -68,6 +70,35 @@ function withDownloadUrl(item: PocketItem): PocketItem {
 
 function cleanTags(tags: string[] | undefined): string[] {
   return Array.from(new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean)));
+}
+
+async function fileExists(target: string): Promise<boolean> {
+  try {
+    await fs.access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function writeJsonAtomic(target: string, value: unknown, options: { backupExisting?: boolean } = {}): Promise<void> {
+  const payload = JSON.stringify(value, null, 2);
+  const temp = `${target}${TEMP_SUFFIX}`;
+  const backupExisting = options.backupExisting ?? true;
+
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  if (backupExisting && (await fileExists(target))) {
+    await fs.copyFile(target, `${target}${BACKUP_SUFFIX}`);
+  }
+
+  await fs.writeFile(temp, payload);
+  await fs.rename(temp, target);
+}
+
+async function readMetadataFile(target: string): Promise<MetadataFile> {
+  const raw = await fs.readFile(target, "utf8");
+  const parsed = JSON.parse(raw) as MetadataFile;
+  return { items: Array.isArray(parsed.items) ? parsed.items : [] };
 }
 
 export class ItemStore {
@@ -167,6 +198,7 @@ export class ItemStore {
     };
 
     this.items[index] = updated;
+    await this.saveItemMetadata(updated);
     await this.save();
     return withDownloadUrl(updated);
   }
@@ -204,6 +236,7 @@ export class ItemStore {
     };
 
     this.items.unshift(item);
+    await this.saveItemMetadata(item);
     await this.save();
     return withDownloadUrl(item);
   }
@@ -212,12 +245,20 @@ export class ItemStore {
     if (this.loaded) return;
 
     try {
-      const raw = await fs.readFile(this.config.metadataPath, "utf8");
-      const parsed = JSON.parse(raw) as MetadataFile;
-      this.items = Array.isArray(parsed.items) ? parsed.items : [];
+      const parsed = await readMetadataFile(this.config.metadataPath);
+      this.items = parsed.items;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        throw error;
+        const backupPath = `${this.config.metadataPath}${BACKUP_SUFFIX}`;
+        try {
+          const backup = await readMetadataFile(backupPath);
+          this.items = backup.items;
+          await this.save({ backupExisting: false });
+          this.loaded = true;
+          return;
+        } catch {
+          throw error;
+        }
       }
 
       this.items = [];
@@ -227,9 +268,14 @@ export class ItemStore {
     this.loaded = true;
   }
 
-  private async save(): Promise<void> {
+  private async save(options: { backupExisting?: boolean } = {}): Promise<void> {
     const payload: MetadataFile = { items: this.items };
-    await fs.mkdir(path.dirname(this.config.metadataPath), { recursive: true });
-    await fs.writeFile(this.config.metadataPath, JSON.stringify(payload, null, 2));
+    await writeJsonAtomic(this.config.metadataPath, payload, options);
+  }
+
+  private async saveItemMetadata(item: PocketItem): Promise<void> {
+    if (!item.storageRelPath) return;
+    const metadataPath = path.join(this.config.dataDir, path.dirname(item.storageRelPath), "metadata.json");
+    await writeJsonAtomic(metadataPath, { item: withDownloadUrl(item) });
   }
 }

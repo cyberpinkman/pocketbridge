@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { constants } from "node:fs";
 import { Router } from "express";
 import multer from "multer";
 import type { Config } from "../config.js";
@@ -130,7 +131,11 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
       if (!item.storageRelPath) notFound("Item has no downloadable file");
 
       const absolutePath = absoluteStoragePath(config, item.storageRelPath);
-      await fs.access(absolutePath);
+      try {
+        await fs.access(absolutePath, constants.R_OK);
+      } catch {
+        notFound("Item file not found");
+      }
       res.setHeader("Content-Type", item.mimeType ?? "application/octet-stream");
       res.download(absolutePath, item.originalFilename ?? path.basename(absolutePath));
     })
