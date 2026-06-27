@@ -7,11 +7,13 @@ const repoRoot = path.resolve("..");
 const workflowPath = path.join(repoRoot, ".github", "workflows", "ci.yml");
 const checklistPath = path.join(repoRoot, "docs", "MANUAL_QA_CHECKLIST.md");
 const readmePath = path.join(repoRoot, "README.md");
+const mobileReadmePath = path.join(repoRoot, "apps", "mobile_flutter", "README.md");
 
 test("CI uploads the Flutter Android debug APK for teammate handoff", async () => {
   const workflow = await fs.readFile(workflowPath, "utf8");
   const checklist = await fs.readFile(checklistPath, "utf8");
   const readme = await fs.readFile(readmePath, "utf8");
+  const mobileReadme = await fs.readFile(mobileReadmePath, "utf8");
 
   assert.match(workflow, /flutter build apk --debug --no-pub/);
   assert.match(workflow, /uses: actions\/upload-artifact@v6/);
@@ -22,5 +24,9 @@ test("CI uploads the Flutter Android debug APK for teammate handoff", async () =
   assert.match(workflow, /retention-days: 7/);
 
   assert.match(checklist, /pocketbridge-mobile-debug-apk/);
+  assert.match(checklist, /adb install -r app-debug\.apk/);
   assert.match(readme, /pocketbridge-mobile-debug-apk/);
+  assert.match(readme, /adb install -r app-debug\.apk/);
+  assert.match(mobileReadme, /pocketbridge-mobile-debug-apk/);
+  assert.match(mobileReadme, /adb install -r app-debug\.apk/);
 });

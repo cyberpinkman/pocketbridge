@@ -53,7 +53,7 @@ Phone and app steps:
 1. Put the Mac and Android phone on the same Wi-Fi, hotspot, or routed LAN.
 2. Confirm the phone can open `http://<Mac-LAN-IP>:3000/mobile.html` in its browser.
 3. Open `http://<Mac-LAN-IP>:3000/` on the Mac.
-4. Run the Flutter app on the phone.
+4. Run the Flutter app on the phone with `flutter run -d <android-device-id>`, or install the CI artifact with `adb install -r app-debug.apk`.
 5. Scan the Mac QR code from the app.
 6. Confirm the app stores `serverBaseUrl`, `wsUrl`, and `pairCode`.
 7. Upload one text note from phone to Mac.

@@ -77,6 +77,13 @@ If a teammate only needs an installable debug APK, use the latest successful Git
 app-debug.apk
 ```
 
+Install the downloaded APK with Android platform tools:
+
+```bash
+adb devices
+adb install -r app-debug.apk
+```
+
 If no Android device is available, use the browser fallback printed by the server:
 
 ```text
