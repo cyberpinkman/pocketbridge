@@ -18,6 +18,7 @@ Status as of 2026-06-27 on branch `codex/mobile-flutter-scaffold`:
 - Server restart persistence and API-level phone upload are covered by `npm run demo:smoke`.
 - BLE `trusted -> away` API updates and WebSocket events are covered by HTTP tests and `npm run demo:smoke`.
 - Mac PocketInbox UI rendering for Snapzy imports and BLE state is covered by `npm run demo:ui-smoke`.
+- Mobile browser fallback upload, Mac UI live rendering, shared-file listing, and download are covered by `npm run demo:ui-smoke`.
 - Android real-device verification, fallback recording, and live LAN/hotspot rehearsal remain manual follow-ups.
 - Checkboxes below track implemented and locally verified work. Unchecked items require physical-device or live-demo evidence.
 
