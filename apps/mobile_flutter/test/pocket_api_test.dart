@@ -167,6 +167,74 @@ void main() {
     expect(downloaded.bytes, [1, 2, 3]);
   });
 
+  test('download prefers UTF-8 filename star from Content-Disposition', () async {
+    final api = PocketBridgeApi(
+      _pairing(),
+      client: MockClient((request) async {
+        expect(
+          request.url.toString(),
+          'http://mac.local:3000/api/items/itm_1782547200000_b7e2c31a/download',
+        );
+        return http.Response.bytes(
+          [4, 5, 6],
+          200,
+          headers: {
+            'content-disposition':
+                'attachment; filename="fallback.pdf"; filename*=UTF-8\'\'%E6%8A%A5%E5%91%8A%202026.pdf',
+            'content-type': 'application/pdf',
+          },
+        );
+      }),
+    );
+
+    final downloaded = await api.download(PocketItem.fromJson(_fileItemJson()));
+
+    expect(downloaded.filename, '报告 2026.pdf');
+    expect(downloaded.bytes, [4, 5, 6]);
+  });
+
+  test('download unescapes quoted Content-Disposition filename', () async {
+    final api = PocketBridgeApi(
+      _pairing(),
+      client: MockClient((_) async {
+        return http.Response.bytes(
+          [7],
+          200,
+          headers: {
+            'content-disposition':
+                r'attachment; filename="report \"final\".pdf"',
+          },
+        );
+      }),
+    );
+
+    final downloaded = await api.download(PocketItem.fromJson(_fileItemJson()));
+
+    expect(downloaded.filename, 'report "final".pdf');
+  });
+
+  test(
+    'download falls back when Content-Disposition filename is empty',
+    () async {
+      final api = PocketBridgeApi(
+        _pairing(),
+        client: MockClient((_) async {
+          return http.Response.bytes(
+            [8],
+            200,
+            headers: {'content-disposition': 'attachment; filename=""'},
+          );
+        }),
+      );
+
+      final downloaded = await api.download(
+        PocketItem.fromJson(_fileItemJson()),
+      );
+
+      expect(downloaded.filename, 'note.txt');
+    },
+  );
+
   test('websocketUri includes pair code and mobile client query params', () {
     final uri = PocketBridgeApi(_pairing()).websocketUri();
 

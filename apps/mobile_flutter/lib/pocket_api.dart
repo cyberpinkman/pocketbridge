@@ -306,6 +306,47 @@ MediaType? _mediaTypeFor(PlatformFile file) {
 String? _filenameFromHeaders(Map<String, String> headers) {
   final disposition = headers['content-disposition'];
   if (disposition == null) return null;
-  final match = RegExp(r'filename="?([^";]+)"?').firstMatch(disposition);
-  return match?.group(1);
+
+  return _extendedFilename(disposition) ?? _basicFilename(disposition);
+}
+
+String? _extendedFilename(String disposition) {
+  final match = RegExp(
+    r'''(?:^|;)\s*filename\*\s*=\s*(?:"([^"]+)"|([^;]+))''',
+    caseSensitive: false,
+  ).firstMatch(disposition);
+  final value = match?.group(1) ?? match?.group(2);
+  if (value == null) return null;
+
+  final trimmed = value.trim();
+  final firstQuote = trimmed.indexOf("'");
+  final secondQuote = firstQuote < 0
+      ? -1
+      : trimmed.indexOf("'", firstQuote + 1);
+  final encoded = secondQuote >= 0
+      ? trimmed.substring(secondQuote + 1)
+      : trimmed;
+
+  try {
+    return _nonEmpty(Uri.decodeComponent(encoded));
+  } on FormatException {
+    return _nonEmpty(encoded);
+  }
+}
+
+String? _basicFilename(String disposition) {
+  final match = RegExp(
+    r'''(?:^|;)\s*filename\s*=\s*(?:"((?:\\.|[^"])*)"|([^;]+))''',
+    caseSensitive: false,
+  ).firstMatch(disposition);
+  final value = match?.group(1) ?? match?.group(2);
+  if (value == null) return null;
+
+  return _nonEmpty(
+    value.trim().replaceAllMapped(RegExp(r'\\(.)'), (match) => match.group(1)!),
+  );
+}
+
+String? _nonEmpty(String value) {
+  return value.isEmpty ? null : value;
 }
