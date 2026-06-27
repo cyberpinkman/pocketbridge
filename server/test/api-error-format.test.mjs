@@ -4,7 +4,7 @@ import test from "node:test";
 
 test("POST /api/items/upload returns UPLOAD_TOO_LARGE when file exceeds PB_MAX_UPLOAD_MB", async () => {
   const originalMaxUploadMb = process.env.PB_MAX_UPLOAD_MB;
-  process.env.PB_MAX_UPLOAD_MB = "0";
+  process.env.PB_MAX_UPLOAD_MB = "1";
 
   try {
     const cacheKey = `case=${Date.now()}-${Math.random()}`;
@@ -13,7 +13,7 @@ test("POST /api/items/upload returns UPLOAD_TOO_LARGE when file exceeds PB_MAX_U
     const { readMetadata, writeMetadata } = await import(
       `../../dist/server/src/storage/metadataStore.js?${cacheKey}`
     );
-    assert.equal(config.maxUploadBytes, 0);
+    assert.equal(config.maxUploadBytes, 1024 * 1024);
     const originalMetadata = await readMetadata();
     await writeMetadata({
       items: [],
@@ -37,7 +37,7 @@ test("POST /api/items/upload returns UPLOAD_TOO_LARGE when file exceeds PB_MAX_U
       const form = new FormData();
       form.set("origin", "mobile");
       form.set("sourceDevice", "Demo Phone");
-      form.set("file", new Blob(["too large"], { type: "text/plain" }), "too-large.txt");
+      form.set("file", new Blob([new Uint8Array(2 * 1024 * 1024)], { type: "application/octet-stream" }), "too-large.bin");
 
       const response = await fetch(`http://127.0.0.1:${address.port}/api/items/upload`, {
         method: "POST",

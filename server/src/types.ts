@@ -19,6 +19,7 @@ export interface PocketItem {
   tags?: string[];
   sharedToMobile?: boolean;
   updatedAt?: string;
+  archivedAt?: string;
 }
 
 export interface PairingSession {
@@ -47,6 +48,8 @@ export interface PocketMetadata {
 export type BridgeEvent =
   | { type: "item.created"; item: PocketItem }
   | { type: "item.updated"; item: PocketItem }
+  | { type: "item.deleted"; item: PocketItem }
+  | { type: "knowledge.saved"; item: PocketItem }
   | { type: "pairing.created"; session: PairingSession; qrDataUrl: string }
   | { type: "pairing.confirmed"; session: PairingSession }
   | { type: "share.queued"; share: ShareRequest }

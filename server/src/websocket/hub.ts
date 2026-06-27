@@ -6,6 +6,8 @@ import { config } from "../config.js";
 import { readMetadata } from "../storage/metadataStore.js";
 import type { BridgeEvent, PocketItem, PocketItemSource } from "../types.js";
 
+type UpstreamClientRole = "mac" | "mobile";
+
 let legacyWebsocketServer: WebSocketServer | undefined;
 let upstreamWebsocketServer: WebSocketServer | undefined;
 
@@ -37,13 +39,13 @@ export function attachWebsocket(server: Server): WebSocketServer {
   });
 
   upstreamWebsocketServer.on("connection", (socket, request) => {
-    void validateUpstreamConnection(request.url ?? "").then((valid) => {
-      if (!valid) {
-        socket.close(1008, "Invalid pair code");
+    void validateUpstreamConnection(request.url ?? "").then((result) => {
+      if (!result.ok) {
+        socket.close(1008, result.reason);
         return;
       }
 
-      socket.send(JSON.stringify(createEnvelope("pairing.connected", {})));
+      socket.send(JSON.stringify(createEnvelope("pairing.connected", { client: result.client })));
     });
   });
 
@@ -74,20 +76,44 @@ export function broadcast(event: BridgeEvent): void {
   }
 }
 
-async function validateUpstreamConnection(url: string): Promise<boolean> {
+async function validateUpstreamConnection(url: string): Promise<
+  | { ok: true; client: UpstreamClientRole }
+  | { ok: false; reason: string }
+> {
   const parsed = new URL(url, "ws://localhost");
   const pairCode = parsed.searchParams.get("pairCode");
   if (!pairCode) {
-    return false;
+    return { ok: false, reason: "Invalid pair code" };
+  }
+
+  const client = parseUpstreamClientRole(parsed.searchParams.get("client"));
+  if (!client) {
+    return { ok: false, reason: "Invalid client" };
   }
 
   const metadata = await readMetadata();
   const session = metadata.pairingSessions.find((candidate) => candidate.token === pairCode);
-  return Boolean(session && Date.parse(session.expiresAt) >= Date.now());
+  if (!session || Date.parse(session.expiresAt) < Date.now()) {
+    return { ok: false, reason: "Invalid pair code" };
+  }
+
+  return { ok: true, client };
+}
+
+function parseUpstreamClientRole(value: string | null): UpstreamClientRole | undefined {
+  return value === "mac" || value === "mobile" ? value : undefined;
 }
 
 function toUpstreamEnvelope(event: BridgeEvent) {
   if (event.type === "item.created" || event.type === "item.updated") {
+    return createEnvelope(event.type, { item: toUpstreamItem(event.item) });
+  }
+
+  if (event.type === "item.deleted") {
+    return createEnvelope(event.type, { item: { id: event.item.id } });
+  }
+
+  if (event.type === "knowledge.saved") {
     return createEnvelope(event.type, { item: toUpstreamItem(event.item) });
   }
 
@@ -136,6 +162,7 @@ function toUpstreamItem(item: PocketItem) {
     status: item.status === "exported" ? "saved_to_knowledge" : "inbox",
     createdAt: item.createdAt,
     updatedAt: item.updatedAt ?? item.createdAt,
+    archivedAt: item.archivedAt,
     downloadUrl: item.filePath ? `/api/items/${item.id}/download` : undefined,
     knowledgePath: item.knowledgeTarget
   };

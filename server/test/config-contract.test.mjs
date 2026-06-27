@@ -41,6 +41,16 @@ test("config accepts upstream PB_* environment overrides while preserving old po
     POCKETBRIDGE_PORT: "4317"
   });
   assert.equal(legacyPortConfig.port, 4317);
+
+  const invalidUploadLimitConfig = await loadConfigWithEnv({
+    PB_MAX_UPLOAD_MB: "not-a-number"
+  });
+  assert.equal(invalidUploadLimitConfig.maxUploadBytes, 100 * 1024 * 1024);
+
+  const nonPositiveUploadLimitConfig = await loadConfigWithEnv({
+    PB_MAX_UPLOAD_MB: "0"
+  });
+  assert.equal(nonPositiveUploadLimitConfig.maxUploadBytes, 100 * 1024 * 1024);
 });
 
 async function loadConfigWithEnv(env) {

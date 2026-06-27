@@ -66,7 +66,7 @@ function connectSocket() {
   });
   state.socket.addEventListener("message", (event) => {
     const payload = JSON.parse(event.data);
-    if (["item.created", "item.updated", "item.shared", "knowledge.saved"].includes(payload.type)) {
+    if (["item.created", "item.updated", "item.shared", "item.deleted", "knowledge.saved"].includes(payload.type)) {
       void loadSharedItems();
     }
   });

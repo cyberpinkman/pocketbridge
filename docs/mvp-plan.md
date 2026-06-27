@@ -36,9 +36,9 @@
 - Mac UI fallback is served by the local bridge at `http://127.0.0.1:3000` by default; set `POCKETBRIDGE_PORT=4317` for the earlier local demo port.
 - Startup logs now print the Mac UI URL, browser phone fallback URL, Snapzy watch folder, and LAN URL candidates for faster physical-phone setup.
 - `PB_PUBLIC_HOST=<Mac-LAN-IP>` makes QR/API pairing payloads use the phone-reachable Mac address; bare hosts automatically include the active server port.
-- `npm run env:check` reports local Node/npm/Flutter/Dart readiness and makes the Flutter CLI gap explicit before demo rehearsal.
-- Mobile Flutter source exists under `apps/mobile_flutter`, but this machine currently lacks the `flutter` and `dart` CLIs, so Flutter compilation must be verified on a configured Flutter workstation.
-- Browser phone fallback is served at `/mobile.html` and uses the same `/api` plus `/ws` contract for upload, shared-item refresh, and download while Flutter runtime verification is blocked.
+- `npm run env:check` reports local Node/npm/Flutter/Dart readiness before demo rehearsal.
+- Mobile Flutter source exists under `apps/mobile_flutter`; Flutter analyze/test/APK build have been verified from an ASCII-only workspace copy because the current repository path can crash the Dart analysis server.
+- Browser phone fallback is served at `/mobile.html` and uses the same `/api` plus `/ws` contract for upload, shared-item refresh, and download while real-phone Flutter QA remains pending.
 - The phone-side app can scan the upstream Mac QR payload through `mobile_scanner`, paste the JSON payload, or fetch `/api/pairing` from a bridge URL as fallback pairing paths.
 - The phone-side app persists the last successful pairing through `shared_preferences` and includes a forget-pairing action for demo resets.
 - The phone-side app now uses bottom navigation for the PRD screen model: Pairing, Capture, and Shared.

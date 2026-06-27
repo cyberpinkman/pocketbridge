@@ -1,8 +1,10 @@
 import { strict as assert } from "node:assert";
 import fs from "node:fs/promises";
 import http from "node:http";
+import path from "node:path";
 import test from "node:test";
 import { createApp } from "../../dist/server/src/app.js";
+import { config } from "../../dist/server/src/config.js";
 import { readMetadata, writeMetadata } from "../../dist/server/src/storage/metadataStore.js";
 
 test("POST /api/items/text requires a valid pair code", async () => {
@@ -451,7 +453,8 @@ test("GET /api/inbox and /api/search expose teammate demo API views", async () =
         createdAt: "2026-06-27T00:00:01.000Z",
         status: "inbox",
         sourceDevice: "Snapzy",
-        tags: ["screenshot"]
+        tags: ["screenshot"],
+        sharedToMobile: true
       }
     ],
     pairingSessions: [
@@ -491,6 +494,18 @@ test("GET /api/inbox and /api/search expose teammate demo API views", async () =
       assert.equal(search.total, 1);
       assert.equal(search.items[0].id, "brief-audio-card");
       assert.equal(search.items[0].origin, "mobile");
+
+      const contractSearchResponse = await fetch(
+        `http://127.0.0.1:${address.port}/api/items/search?q=screenshot&origin=snapzy&sharedToMobile=true`,
+        { headers }
+      );
+      assert.equal(contractSearchResponse.status, 200);
+      const contractSearch = await contractSearchResponse.json();
+      assert.equal(contractSearch.query, "screenshot");
+      assert.equal(contractSearch.total, 1);
+      assert.equal(contractSearch.items[0].id, "brief-snapzy-card");
+      assert.equal(contractSearch.items[0].origin, "snapzy");
+      assert.equal(contractSearch.items[0].sharedToMobile, true);
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
@@ -559,6 +574,165 @@ test("POST /api/items/:id/share-to-mobile marks an item for mobile download", as
   }
 });
 
+test("POST /api/items/:id/archive hides and restores items through the upstream contract", async () => {
+  const originalMetadata = await readMetadata();
+  await writeMetadata({
+    items: [
+      {
+        id: "archive-target",
+        kind: "text",
+        source: "phone",
+        title: "Archive target",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        text: "Archived text",
+        status: "inbox",
+        sourceDevice: "Demo Phone"
+      },
+      {
+        id: "active-target",
+        kind: "text",
+        source: "phone",
+        title: "Active target",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        text: "Active text",
+        status: "inbox",
+        sourceDevice: "Demo Phone"
+      }
+    ],
+    pairingSessions: [
+      {
+        id: "pairing-session",
+        token: "123456",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        expiresAt: "2999-01-01T00:00:00.000Z"
+      }
+    ],
+    shares: []
+  });
+
+  try {
+    const server = http.createServer(createApp());
+    try {
+      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      assert.equal(typeof address, "object");
+      const headers = {
+        "content-type": "application/json",
+        "x-pocketbridge-pair-code": "123456"
+      };
+
+      const archiveResponse = await fetch(`http://127.0.0.1:${address.port}/api/items/archive-target/archive`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ archived: true })
+      });
+      assert.equal(archiveResponse.status, 200);
+      const archived = await archiveResponse.json();
+      assert.equal(archived.item.id, "archive-target");
+      assert.equal(archived.item.status, "inbox");
+      assert.match(archived.item.archivedAt, /^20/);
+
+      const defaultList = await fetch(`http://127.0.0.1:${address.port}/api/items`, {
+        headers: { "x-pocketbridge-pair-code": "123456" }
+      }).then((response) => response.json());
+      assert.deepEqual(defaultList.items.map((item) => item.id), ["active-target"]);
+
+      const archivedList = await fetch(`http://127.0.0.1:${address.port}/api/items?includeArchived=true`, {
+        headers: { "x-pocketbridge-pair-code": "123456" }
+      }).then((response) => response.json());
+      assert.equal(archivedList.items.some((item) => item.id === "archive-target" && item.archivedAt), true);
+
+      const restoreResponse = await fetch(`http://127.0.0.1:${address.port}/api/items/archive-target/archive`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ archived: false })
+      });
+      assert.equal(restoreResponse.status, 200);
+      const restored = await restoreResponse.json();
+      assert.equal(restored.item.id, "archive-target");
+      assert.equal(restored.item.archivedAt, undefined);
+
+      const restoredList = await fetch(`http://127.0.0.1:${address.port}/api/search?q=Archive`, {
+        headers: { "x-pocketbridge-pair-code": "123456" }
+      }).then((response) => response.json());
+      assert.deepEqual(restoredList.items.map((item) => item.id), ["archive-target"]);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  } finally {
+    await writeMetadata(originalMetadata);
+  }
+});
+
+test("DELETE /api/items/:id removes metadata, queued shares, and local inbox files", async () => {
+  const originalMetadata = await readMetadata();
+  const itemDir = path.join(config.inboxDir, "2026-06-27", "delete-target");
+  const filePath = path.join(itemDir, "original");
+  await fs.mkdir(itemDir, { recursive: true });
+  await fs.writeFile(filePath, "delete me");
+  await writeMetadata({
+    items: [
+      {
+        id: "delete-target",
+        kind: "document",
+        source: "phone",
+        title: "Delete target",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        originalName: "delete.txt",
+        mimeType: "text/plain",
+        size: 9,
+        filePath,
+        status: "inbox",
+        sourceDevice: "Demo Phone"
+      }
+    ],
+    pairingSessions: [
+      {
+        id: "pairing-session",
+        token: "123456",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        expiresAt: "2999-01-01T00:00:00.000Z"
+      }
+    ],
+    shares: [
+      {
+        id: "share-for-delete",
+        itemId: "delete-target",
+        target: "phone",
+        status: "queued",
+        createdAt: "2026-06-27T00:00:00.000Z"
+      }
+    ]
+  });
+
+  try {
+    const server = http.createServer(createApp());
+    try {
+      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      assert.equal(typeof address, "object");
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/items/delete-target`, {
+        method: "DELETE",
+        headers: { "x-pocketbridge-pair-code": "123456" }
+      });
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { item: { id: "delete-target" } });
+
+      const metadata = await readMetadata();
+      assert.equal(metadata.items.length, 0);
+      assert.equal(metadata.shares.length, 0);
+      await assert.rejects(fs.access(filePath));
+      await assert.rejects(fs.access(itemDir));
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  } finally {
+    await writeMetadata(originalMetadata);
+    await fs.rm(itemDir, { recursive: true, force: true });
+  }
+});
+
 test("POST /api/knowledge/:id exports an item with upstream status and knowledge path", async () => {
   const originalMetadata = await readMetadata();
   const vaultDir = "tmp/api-knowledge-vault";
@@ -612,13 +786,13 @@ test("POST /api/knowledge/:id exports an item with upstream status and knowledge
       const body = await response.json();
       assert.equal(body.item.id, "api-knowledge-item");
       assert.equal(body.item.status, "saved_to_knowledge");
-      assert.match(body.item.knowledgePath, /tmp\/api-knowledge-vault\/inbox\/2026-06-27-knowledge-idea\.md$/);
+      assert.match(body.item.knowledgePath, /tmp\/api-knowledge-vault\/inbox\/2026-06-27-knowledge-idea-api-knowledge-item\.md$/);
 
       const markdown = await fs.readFile(body.item.knowledgePath, "utf8");
-      assert.match(markdown, /title: Knowledge idea/);
-      assert.match(markdown, /origin: mobile/);
-      assert.match(markdown, /sourceDevice: Demo Phone/);
-      assert.match(markdown, /tags:\n  - pocketbridge\n  - demo/);
+      assert.match(markdown, /title: "Knowledge idea"/);
+      assert.match(markdown, /origin: "mobile"/);
+      assert.match(markdown, /sourceDevice: "Demo Phone"/);
+      assert.match(markdown, /tags:\n  - "pocketbridge"\n  - "demo"/);
       assert.match(markdown, /# Knowledge idea/);
       assert.match(markdown, /## Summary/);
       assert.match(markdown, /Save this to knowledge\./);

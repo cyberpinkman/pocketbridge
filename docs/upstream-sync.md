@@ -7,6 +7,7 @@ Synced from `https://github.com/cyberpinkman/pocketbridge` on 2026-06-27 using t
 - Repository: `cyberpinkman/pocketbridge`
 - Default branch: `main`
 - Additional branch: `codex/mobile-flutter-scaffold`
+- Current local integration branch: `codex/integrate-pocketbridge-mvp`
 - `main` base commit seen through compare API: `34a706579b69dc55bff75de870d3bd6473c615c3`
 - `codex/mobile-flutter-scaffold` is currently at `3c44016ed2c1a7615b8605119d782a60f7581726`
 - Latest synced branch change seen on 2026-06-27: `Add fallback recording and serialize item updates`
@@ -96,7 +97,7 @@ Keep the compatibility layer alongside the current demo endpoints:
 2. Expose upstream-compatible `/api/*` aliases backed by the same metadata store.
 3. Validate pair codes on upstream routes while allowing no-auth local legacy routes during the hackathon.
 4. Emit upstream event envelopes on `/ws` while keeping `/events`.
-5. Verify Flutter compile/run on a configured Flutter workstation because this machine currently lacks `flutter` and `dart`.
+5. Verify Flutter compile/run on a configured Flutter workstation or ASCII-only workspace path; the current non-ASCII repository path can crash `flutter analyze`.
 
 ## Local Compatibility Progress
 
@@ -119,7 +120,7 @@ Keep the compatibility layer alongside the current demo endpoints:
 - Done: config now accepts upstream `PORT`, `PB_DATA_DIR`, `PB_SNAPZY_WATCH_DIR`, `PB_OBSIDIAN_DIR`, and `PB_MAX_UPLOAD_MB` defaults while preserving the older `POCKETBRIDGE_PORT` and `SNAPZY_EXPORT_DIR` overrides.
 - Done: `GET /api/pairing` and `/api/pairing/qr.svg` reuse a valid `PB_PAIR_CODE` as the shared 6-digit pairing code instead of creating duplicate sessions.
 - Done: oversized `/api/items/upload` requests now return the upstream structured `UPLOAD_TOO_LARGE` error with HTTP 413.
-- Done: `POST /api/knowledge/:id` now writes upstream Markdown frontmatter fields (`title`, `origin`, `sourceDevice`, `tags`) and includes the optional request `note`.
+- Done: `POST /api/knowledge/:id` now writes YAML-safe upstream Markdown frontmatter fields (`title`, `origin`, `sourceDevice`, `tags`), includes the optional request `note`, uses item-id-qualified Markdown filenames, and broadcasts `knowledge.saved`.
 - Done: `POST /api/items/upload` now stores files in the upstream `data/inbox/YYYY-MM-DD/<itemId>/original` layout and returns matching `storageRelPath`.
 - Done: `POST /snapzy/import` now creates upstream-style `itm_*` Snapzy items and stores imported files in the same `data/inbox/YYYY-MM-DD/<itemId>/original` layout.
 - Done: `GET /api/items` now applies the upstream `limit` query parameter with a default of `100`.
@@ -143,8 +144,10 @@ Keep the compatibility layer alongside the current demo endpoints:
 - Done: knowledge export Markdown now includes deterministic `## Summary` and `## Content` sections as a local placeholder before any future AI summary pipeline.
 - Done: refreshed local refs from `cyberpinkman/pocketbridge` on 2026-06-27; `origin/main` remains `34a706579b69dc55bff75de870d3bd6473c615c3`, and `origin/codex/mobile-flutter-scaffold` is available locally.
 - Done: aligned the repo against `/Users/zerone/Documents/pocketbridge-teammate-brief.md` by documenting the current demo promise in `docs/DEMO_SCRIPT.md`.
-- Done: added the teammate-brief MCP/API showcase endpoints `GET /api/inbox` and `GET /api/search?q=...` as pair-code-protected read views over the existing PocketInbox metadata.
+- Done: added the teammate-brief MCP/API showcase endpoints `GET /api/inbox`, `GET /api/search?q=...`, and `GET /api/items/search?q=...` as pair-code-protected read views over the existing PocketInbox metadata.
+- Done: implemented contract archive/delete routes for `POST /api/items/:id/archive` and `DELETE /api/items/:id`, including default archived-item filtering, local file cleanup, share cleanup, and `item.deleted` websocket envelopes.
 - Done: refreshed `origin/codex/mobile-flutter-scaffold` to `3c44016ed2c1a7615b8605119d782a60f7581726` and mapped its serialized item-update fix into the active `metadataStore` implementation.
 - Done: metadata mutations are now queued so concurrent PocketInbox writes cannot overwrite each other or collide on temporary metadata files.
-- Remaining: Flutter compile/run and physical-phone QA still need a configured Flutter workstation; local `flutter` and `dart` commands are unavailable on this machine.
+- Done: Flutter analyze, Flutter tests, and debug APK build were verified from an ASCII-only workspace copy.
+- Remaining: physical-phone QA still needs a real Android device on the same LAN.
 - Remaining: full BLE GATT transport and chunking protocol are still future-facing beyond the current BLE Capsule text bridge.

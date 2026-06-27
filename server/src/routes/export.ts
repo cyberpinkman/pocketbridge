@@ -25,6 +25,7 @@ exportRouter.post("/:itemId", async (request, response, next) => {
       knowledgeTarget: exportResult.outputPath
     });
     broadcast({ type: "item.updated", item: exportedItem });
+    broadcast({ type: "knowledge.saved", item: exportedItem });
     response.json({
       ...exportResult,
       item: exportedItem

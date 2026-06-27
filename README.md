@@ -4,12 +4,12 @@ PocketBridge connects a phone and a Mac over the local network for fast capture,
 
 ## Current Integrated Branch
 
-This branch integrates the PocketBridge MVP sync PR with the mobile Flutter scaffold work:
+This working tree integrates the PocketBridge MVP sync PR with the mobile Flutter scaffold work. The integration branch name is `codex/integrate-pocketbridge-mvp`.
 
 ```bash
 git clone https://github.com/cyberpinkman/pocketbridge.git
 cd pocketbridge
-git checkout codex/integrate-pocketbridge-mvp
+npm install
 ```
 
 The canonical Node bridge now runs from the repository root. The older `server/` subpackage is not the primary entrypoint.
@@ -50,9 +50,15 @@ The Mac Web UI and Flutter app share the same contract:
 - `POST /api/items/text`
 - `POST /api/items/upload`
 - `GET /api/items`
+- `GET /api/inbox`
+- `GET /api/search?q=<query>`
+- `GET /api/items/search?q=<query>`
 - `GET /api/items?sharedToMobile=true`
+- `GET /api/items/:id`
 - `GET /api/items/:id/download`
 - `POST /api/items/:id/share-to-mobile`
+- `POST /api/items/:id/archive`
+- `DELETE /api/items/:id`
 - `POST /api/knowledge/:id`
 - `GET /api/ble/status`
 - `POST /api/ble/status`

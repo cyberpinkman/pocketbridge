@@ -1,6 +1,6 @@
 # PocketBridge Local Environment
 
-Sync note: this file was imported from the remote Flutter scaffold branch as the reference environment used to generate the Android project. On this local machine, `npm run env:check` currently reports Flutter and Dart as missing, so use `docs/DEMO_SCRIPT.md` and the browser phone fallback until the Flutter toolchain is installed here.
+Sync note: this file describes the local Flutter and Android environment used to generate and verify the Android project. On this local machine, `npm run env:check` reports Node, npm, Flutter, and Dart as available. Physical Android-device testing is still not verified in this phase.
 
 **Date:** 2026-06-27  
 **Machine:** macOS 26.5.1 arm64  
@@ -127,12 +127,12 @@ This is enough to build the PocketBridge mobile MVP because the app mainly needs
 
 ## Fresh Clone Checklist
 
-Use the current MVP branch until it is merged:
+Use the integrated MVP branch until it is merged:
 
 ```bash
 git clone https://github.com/cyberpinkman/pocketbridge.git
 cd pocketbridge
-git checkout codex/mobile-flutter-scaffold
+git checkout codex/integrate-pocketbridge-mvp
 ```
 
 Server verification:
@@ -140,11 +140,11 @@ Server verification:
 Run each verification block from the repository root.
 
 ```bash
-cd server
 npm install
 npm run build
 npm test
 npm run demo:smoke
+npm run demo:lan-check
 ```
 
 Flutter verification:

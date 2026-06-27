@@ -6,6 +6,7 @@ import test from "node:test";
 import WebSocket from "ws";
 import { createApp } from "../../dist/server/src/app.js";
 import { config } from "../../dist/server/src/config.js";
+import { exportItemToMarkdown } from "../../dist/server/src/integrations/knowledgeBase.js";
 import { readMetadata, writeMetadata } from "../../dist/server/src/storage/metadataStore.js";
 import { attachWebsocket } from "../../dist/server/src/websocket/hub.js";
 
@@ -51,7 +52,7 @@ test("POST /export/:itemId copies file assets and marks the item exported", asyn
 
       const body = await response.json();
       assert.equal(body.item.status, "exported");
-      assert.match(body.outputPath, /tmp\/test-knowledge-vault\/inbox\/2026-06-27-knowledge-export-source\.md$/);
+      assert.match(body.outputPath, /tmp\/test-knowledge-vault\/inbox\/2026-06-27-knowledge-export-source-knowledge-item\.md$/);
       assert.match(body.assetPath, /tmp\/test-knowledge-vault\/assets\/pocketbridge\/knowledge-item-knowledge-export-source\.txt$/);
 
       const markdown = await fs.readFile(body.outputPath, "utf8");
@@ -74,7 +75,41 @@ test("POST /export/:itemId copies file assets and marks the item exported", asyn
   }
 });
 
-test("POST /export/:itemId broadcasts item.updated after exporting", async () => {
+test("exportItemToMarkdown writes unique filenames and YAML-safe frontmatter", async () => {
+  const vaultDir = path.resolve("tmp", "test-knowledge-safe-vault");
+  await fs.rm(vaultDir, { recursive: true, force: true });
+
+  try {
+    const baseItem = {
+      kind: "text",
+      source: "phone",
+      title: "Idea: alpha\nnext",
+      createdAt: "2026-06-27T00:00:00.000Z",
+      text: "Knowledge body",
+      status: "inbox",
+      sourceDevice: "Demo: Phone\nOne",
+      tags: ["demo: tag", "multi\nline", ""]
+    };
+
+    const first = await exportItemToMarkdown({ ...baseItem, id: "same-title-a" }, { vaultDir });
+    const second = await exportItemToMarkdown({ ...baseItem, id: "same-title-b" }, { vaultDir });
+
+    assert.notEqual(first.outputPath, second.outputPath);
+    assert.match(path.basename(first.outputPath), /^2026-06-27-idea-alpha-next-same-title-a\.md$/);
+    assert.match(path.basename(second.outputPath), /^2026-06-27-idea-alpha-next-same-title-b\.md$/);
+
+    const markdown = await fs.readFile(first.outputPath, "utf8");
+    assert.match(markdown, /title: "Idea: alpha next"/);
+    assert.match(markdown, /sourceDevice: "Demo: Phone One"/);
+    assert.match(markdown, /tags:\n  - "demo: tag"\n  - "multi line"/);
+    assert.doesNotMatch(markdown, /  - ""/);
+    assert.match(markdown, /^# Idea: alpha next$/m);
+  } finally {
+    await fs.rm(vaultDir, { recursive: true, force: true });
+  }
+});
+
+test("POST /export/:itemId broadcasts item.updated and knowledge.saved after exporting", async () => {
   const originalMetadata = await readMetadata();
   const sourceFile = path.join(config.inboxDir, "knowledge-export-broadcast.txt");
   const vaultDir = path.resolve("tmp", "test-knowledge-broadcast-vault");
@@ -127,6 +162,11 @@ test("POST /export/:itemId broadcasts item.updated after exporting", async () =>
       assert.equal(event.item.id, "knowledge-broadcast-item");
       assert.equal(event.item.status, "exported");
       assert.match(event.item.knowledgeTarget, /test-knowledge-broadcast-vault/);
+
+      const savedEvent = await waitForMessage(received, "knowledge.saved");
+      assert.equal(savedEvent.item.id, "knowledge-broadcast-item");
+      assert.equal(savedEvent.item.status, "exported");
+      assert.match(savedEvent.item.knowledgeTarget, /test-knowledge-broadcast-vault/);
     } finally {
       client?.close();
       await new Promise((resolve) => websocketServer.close(resolve));

@@ -128,7 +128,7 @@ export async function runLanPreflight(options: LanPreflightOptions = {}): Promis
     assert.match(mobileFallback.body, /Send to Mac/);
     checked.push("mobile-fallback");
 
-    await waitForSocketPairing(`${localWsUrl}?pairCode=${encodeURIComponent(pairCode)}&client=lan-check`);
+    await waitForSocketPairing(`${localWsUrl}?pairCode=${encodeURIComponent(pairCode)}&client=mobile`);
     checked.push("websocket");
 
     const created = await json(`${localBaseUrl}/api/items/text`, {

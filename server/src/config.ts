@@ -2,6 +2,16 @@ import path from "node:path";
 
 const dataDir = path.resolve(process.cwd(), process.env.PB_DATA_DIR ?? "data");
 
+function positiveNumberEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export const config = {
   port: Number(process.env.POCKETBRIDGE_PORT ?? process.env.PORT ?? 3000),
   host: process.env.POCKETBRIDGE_HOST ?? "0.0.0.0",
@@ -12,5 +22,5 @@ export const config = {
   snapzyWatchDir: path.resolve(process.cwd(), process.env.PB_SNAPZY_WATCH_DIR ?? path.join(dataDir, "watch", "snapzy")),
   legacySnapzyInboxDir: path.resolve(process.cwd(), "integrations", "snapzy", "inbox"),
   obsidianDir: path.resolve(process.cwd(), process.env.PB_OBSIDIAN_DIR ?? path.join(dataDir, "obsidian", "PocketBridge")),
-  maxUploadBytes: Number(process.env.PB_MAX_UPLOAD_MB ?? 100) * 1024 * 1024
+  maxUploadBytes: positiveNumberEnv("PB_MAX_UPLOAD_MB", 100) * 1024 * 1024
 };

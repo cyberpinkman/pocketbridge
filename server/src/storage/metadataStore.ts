@@ -98,6 +98,19 @@ export async function updateItem(item: PocketItem): Promise<PocketItem> {
   });
 }
 
+export async function removeItem(itemId: string): Promise<PocketItem | undefined> {
+  return updateMetadata((metadata) => {
+    const item = metadata.items.find((candidate) => candidate.id === itemId);
+    if (!item) {
+      return undefined;
+    }
+
+    metadata.items = metadata.items.filter((candidate) => candidate.id !== itemId);
+    metadata.shares = metadata.shares.filter((candidate) => candidate.itemId !== itemId);
+    return item;
+  });
+}
+
 export async function updateShare(share: ShareRequest): Promise<ShareRequest> {
   return updateMetadata((metadata) => {
     metadata.shares = metadata.shares.map((candidate) =>

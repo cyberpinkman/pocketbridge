@@ -399,7 +399,7 @@ Response:
   "item": {
     "id": "itm_1782547200000_a9f4c21b",
     "status": "saved_to_knowledge",
-    "knowledgePath": "data/obsidian/PocketBridge/2026-06-27-idea-from-phone-itm_1782547200000_a9f4c21b.md"
+    "knowledgePath": "data/obsidian/PocketBridge/inbox/2026-06-27-idea-from-phone-itm_1782547200000_a9f4c21b.md"
   }
 }
 ```
@@ -410,48 +410,35 @@ Markdown output format for a text item:
 ---
 id: "itm_1782547200000_a9f4c21b"
 title: "Idea from phone"
-kind: "text"
 origin: "mobile"
 sourceDevice: "Pinkmans-iPhone"
+source: "phone"
+kind: "text"
 createdAt: "2026-06-27T12:00:00.000Z"
-updatedAt: "2026-06-27T12:00:00.000Z"
 tags:
   - "pocketbridge"
   - "demo"
-  - "text"
-  - "mobile"
 ---
 
 # Idea from phone
 
-Turn screenshots into a personal knowledge stream.
-
 ## Summary
 
-Pending summary.
+Turn screenshots into a personal knowledge stream.
 
-## Note
+## Content
+
+Turn screenshots into a personal knowledge stream.
 
 Imported during live demo.
+
+Source: mobile / Pinkmans-iPhone
 ```
 
-Markdown output for file/image/screenshot items also includes source metadata and an Obsidian attachment link:
+Markdown output for file/image/screenshot items also copies the original asset into `assets/pocketbridge/` and includes an Obsidian attachment link:
 
 ```markdown
-mimeType: "image/png"
-sizeBytes: 481223
-originalFilename: "Screenshot 2026-06-27 20.00.00.png"
-storageRelPath: "inbox/2026-06-27/itm_1782547200000_a9f4c21b/original"
-```
-
-```markdown
-File: inbox/2026-06-27/itm_1782547200000_a9f4c21b/original
-
-[[attachments/itm_1782547200000_a9f4c21b-Screenshot 2026-06-27 20.00.00.png|Screenshot 2026-06-27 20.00.00.png]]
-
-## Source File
-
-inbox/2026-06-27/itm_1782547200000_a9f4c21b/original
+Asset: [[../assets/pocketbridge/itm_1782547200000_a9f4c21b-screenshot-2026-06-27-20-00-00.png]]
 ```
 
 ### `GET /api/ble/status`

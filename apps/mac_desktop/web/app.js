@@ -259,6 +259,10 @@ function connectEvents() {
       logEvent(`Updated ${data.item?.title ?? "item"}`);
       await loadItems();
       await loadShares();
+    } else if (message.type === "item.deleted") {
+      logEvent("Item deleted");
+      await loadItems();
+      await loadShares();
     } else if (message.type === "item.shared") {
       logEvent("Share queued for phone");
       await loadShares();

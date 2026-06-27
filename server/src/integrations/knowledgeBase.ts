@@ -21,24 +21,26 @@ export async function exportItemToMarkdown(
   const assetsDir = path.join(options.vaultDir, "assets", "pocketbridge");
   await fs.mkdir(inboxDir, { recursive: true });
 
-  const filename = `${item.createdAt.slice(0, 10)}-${slugify(item.title)}.md`;
+  const filename = `${item.createdAt.slice(0, 10)}-${slugify(item.title)}-${filenameSafeId(item.id)}.md`;
   const outputPath = path.join(inboxDir, filename);
   const asset = await copyAsset(item, assetsDir);
   const summary = summarizeItem(item);
+  const title = markdownInlineText(item.title);
+  const sourceDevice = markdownInlineText(item.sourceDevice ?? defaultSourceDevice(item.source));
   const markdown = [
     "---",
-    `id: ${item.id}`,
-    `title: ${item.title}`,
-    `origin: ${toKnowledgeOrigin(item.source)}`,
-    `sourceDevice: ${item.sourceDevice ?? defaultSourceDevice(item.source)}`,
-    `source: ${item.source}`,
-    `kind: ${item.kind}`,
-    `createdAt: ${item.createdAt}`,
+    `id: ${yamlString(item.id)}`,
+    `title: ${yamlString(title)}`,
+    `origin: ${yamlString(toKnowledgeOrigin(item.source))}`,
+    `sourceDevice: ${yamlString(sourceDevice)}`,
+    `source: ${yamlString(item.source)}`,
+    `kind: ${yamlString(item.kind)}`,
+    `createdAt: ${yamlString(item.createdAt)}`,
     "tags:",
-    ...(item.tags ?? []).map((tag) => `  - ${tag}`),
+    ...yamlStringList(item.tags),
     "---",
     "",
-    `# ${item.title}`,
+    `# ${title}`,
     "",
     "## Summary",
     "",
@@ -50,7 +52,7 @@ export async function exportItemToMarkdown(
     "",
     options.note?.trim() ?? "",
     "",
-    `Source: ${toKnowledgeOrigin(item.source)} / ${item.sourceDevice ?? defaultSourceDevice(item.source)}`,
+    `Source: ${toKnowledgeOrigin(item.source)} / ${sourceDevice}`,
     "",
     asset ? `Asset: [[${asset.reference}]]` : ""
   ].join("\n");
@@ -91,7 +93,7 @@ function summarizeItem(item: PocketItem): string {
 
   const origin = toKnowledgeOrigin(item.source);
   const device = item.sourceDevice ?? defaultSourceDevice(item.source);
-  return `${item.title} captured from ${origin} / ${device}.`;
+  return `${markdownInlineText(item.title)} captured from ${origin} / ${device}.`;
 }
 
 function slugify(value: string): string {
@@ -100,6 +102,33 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 80) || "pocketbridge-item";
+}
+
+function filenameSafeId(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || "item";
+}
+
+function markdownInlineText(value: string): string {
+  return normalizeInlineText(value) || "Untitled";
+}
+
+function yamlString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function yamlStringList(values: string[] | undefined): string[] {
+  return (values ?? [])
+    .map((value) => normalizeInlineText(value))
+    .filter((value) => value.length > 0)
+    .map((value) => `  - ${yamlString(value)}`);
+}
+
+function normalizeInlineText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 async function copyAsset(

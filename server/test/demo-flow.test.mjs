@@ -84,7 +84,8 @@ test("PocketBridge demo smoke flow runs through pair, transfer, export, and trus
         vaultDir
       });
       assert.equal(exported.item.status, "exported");
-      assert.equal(path.basename(exported.outputPath).endsWith("-smoke-phone-document-txt.md"), true);
+      assert.equal(path.basename(exported.outputPath).includes("-smoke-phone-document-txt-"), true);
+      assert.equal(path.basename(exported.outputPath).endsWith(".md"), true);
       assert.ok(exported.assetPath.endsWith("smoke-phone-document.txt"));
       assert.match(await fs.readFile(exported.outputPath, "utf8"), /\[\[\.{2}\/assets\/pocketbridge\//);
       assert.equal(await fs.readFile(exported.assetPath, "utf8"), "PocketBridge smoke test document");

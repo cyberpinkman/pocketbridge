@@ -9,7 +9,6 @@ Run commands from the repository root unless a step says otherwise. If your Flut
 Start the Mac server first:
 
 ```bash
-cd server
 npm install
 npm run dev
 ```

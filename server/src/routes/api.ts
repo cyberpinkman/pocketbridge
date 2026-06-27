@@ -8,7 +8,7 @@ import { config } from "../config.js";
 import { exportItemToMarkdown } from "../integrations/knowledgeBase.js";
 import { getBleStatus, setBleStatus, type BleStatusValue } from "../integrations/trustState.js";
 import { publicBaseUrl } from "../startupInfo.js";
-import { addItem, addPairingSession, addShare, readMetadata, updateItem } from "../storage/metadataStore.js";
+import { addItem, addPairingSession, addShare, readMetadata, removeItem, updateItem } from "../storage/metadataStore.js";
 import type { PairingSession, PocketItem, PocketItemKind, PocketItemSource, ShareRequest } from "../types.js";
 import { broadcast } from "../websocket/hub.js";
 
@@ -56,8 +56,9 @@ apiRouter.get("/items", async (request, response, next) => {
     const sharedToMobile = typeof request.query.sharedToMobile === "string"
       ? request.query.sharedToMobile === "true"
       : undefined;
+    const includeArchived = parseBooleanQuery(request.query.includeArchived);
     const limit = parseItemsLimit(request.query.limit);
-    const items = metadata.items
+    const items = visibleItems(metadata.items, includeArchived)
       .map(toUpstreamItem)
       .filter((item) => (origin ? item.origin === origin : true))
       .filter((item) =>
@@ -80,8 +81,9 @@ apiRouter.get("/inbox", async (request, response, next) => {
 
     const metadata = await readMetadata();
     const query = typeof request.query.q === "string" ? request.query.q.trim() : "";
+    const includeArchived = parseBooleanQuery(request.query.includeArchived);
     const limit = parseItemsLimit(request.query.limit);
-    const items = filterItems(metadata.items, query).slice(0, limit).map(toUpstreamItem);
+    const items = filterItems(visibleItems(metadata.items, includeArchived), query).slice(0, limit).map(toUpstreamItem);
     response.json({ items, total: items.length });
   } catch (error) {
     next(error);
@@ -98,8 +100,48 @@ apiRouter.get("/search", async (request, response, next) => {
 
     const metadata = await readMetadata();
     const query = typeof request.query.q === "string" ? request.query.q.trim() : "";
+    const origin = typeof request.query.origin === "string" ? request.query.origin : undefined;
+    const sharedToMobile = typeof request.query.sharedToMobile === "string"
+      ? request.query.sharedToMobile === "true"
+      : undefined;
+    const includeArchived = parseBooleanQuery(request.query.includeArchived);
     const limit = parseItemsLimit(request.query.limit);
-    const items = filterItems(metadata.items, query).slice(0, limit).map(toUpstreamItem);
+    const items = filterItems(visibleItems(metadata.items, includeArchived), query)
+      .map(toUpstreamItem)
+      .filter((item) => (origin ? item.origin === origin : true))
+      .filter((item) =>
+        typeof sharedToMobile === "boolean" ? item.sharedToMobile === sharedToMobile : true
+      )
+      .slice(0, limit);
+    response.json({ query, items, total: items.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get("/items/search", async (request, response, next) => {
+  try {
+    const auth = await requirePairCode(request);
+    if (!auth.ok) {
+      response.status(401).json(unauthorizedError());
+      return;
+    }
+
+    const metadata = await readMetadata();
+    const query = typeof request.query.q === "string" ? request.query.q.trim() : "";
+    const origin = typeof request.query.origin === "string" ? request.query.origin : undefined;
+    const sharedToMobile = typeof request.query.sharedToMobile === "string"
+      ? request.query.sharedToMobile === "true"
+      : undefined;
+    const includeArchived = parseBooleanQuery(request.query.includeArchived);
+    const limit = parseItemsLimit(request.query.limit);
+    const items = filterItems(visibleItems(metadata.items, includeArchived), query)
+      .map(toUpstreamItem)
+      .filter((item) => (origin ? item.origin === origin : true))
+      .filter((item) =>
+        typeof sharedToMobile === "boolean" ? item.sharedToMobile === sharedToMobile : true
+      )
+      .slice(0, limit);
     response.json({ query, items, total: items.length });
   } catch (error) {
     next(error);
@@ -290,6 +332,68 @@ apiRouter.post("/items/:itemId/share-to-mobile", async (request, response, next)
   }
 });
 
+apiRouter.post("/items/:itemId/archive", async (request, response, next) => {
+  try {
+    const auth = await requirePairCode(request);
+    if (!auth.ok) {
+      response.status(401).json(unauthorizedError());
+      return;
+    }
+
+    if (typeof request.body.archived !== "boolean") {
+      response.status(400).json({
+        error: { code: "BAD_REQUEST", message: "archived must be a boolean" }
+      });
+      return;
+    }
+
+    const metadata = await readMetadata();
+    const item = metadata.items.find((candidate) => candidate.id === request.params.itemId);
+    if (!item) {
+      response.status(404).json({
+        error: { code: "NOT_FOUND", message: "item not found" }
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const updatedItem = await updateItem({
+      ...item,
+      archivedAt: request.body.archived ? now : undefined,
+      updatedAt: now
+    });
+
+    broadcast({ type: "item.updated", item: updatedItem });
+    response.json({ item: toUpstreamItem(updatedItem) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.delete("/items/:itemId", async (request, response, next) => {
+  try {
+    const auth = await requirePairCode(request);
+    if (!auth.ok) {
+      response.status(401).json(unauthorizedError());
+      return;
+    }
+
+    const item = await removeItem(request.params.itemId);
+    if (!item) {
+      response.status(404).json({
+        error: { code: "NOT_FOUND", message: "item not found" }
+      });
+      return;
+    }
+
+    await removeInboxArtifact(item);
+    broadcast({ type: "item.deleted", item });
+    response.json({ item: { id: item.id } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 apiRouter.get("/items/:itemId/download", async (request, response, next) => {
   try {
     const auth = await requirePairCode(request);
@@ -366,6 +470,7 @@ apiRouter.post("/knowledge/:itemId", async (request, response, next) => {
     });
 
     broadcast({ type: "item.updated", item: updatedItem });
+    broadcast({ type: "knowledge.saved", item: updatedItem });
     response.json({ item: toUpstreamItem(updatedItem) });
   } catch (error) {
     next(error);
@@ -582,6 +687,10 @@ function parseItemsLimit(value: unknown): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
 }
 
+function parseBooleanQuery(value: unknown): boolean {
+  return value === "true";
+}
+
 function isBleStatus(value: unknown): value is BleStatusValue {
   return value === "trusted" || value === "away" || value === "locked" || value === "unknown";
 }
@@ -593,6 +702,14 @@ function filterItems(items: PocketItem[], query: string): PocketItem[] {
 
   const normalizedQuery = query.toLowerCase();
   return items.filter((item) => itemSearchText(item).includes(normalizedQuery));
+}
+
+function visibleItems(items: PocketItem[], includeArchived: boolean): PocketItem[] {
+  return includeArchived ? items : items.filter((item) => !isArchived(item));
+}
+
+function isArchived(item: PocketItem): boolean {
+  return item.status === "archived" || Boolean(item.archivedAt);
 }
 
 function itemSearchText(item: PocketItem): string {
@@ -629,9 +746,26 @@ function toUpstreamItem(item: PocketItem) {
     status: toUpstreamStatus(item),
     createdAt: item.createdAt,
     updatedAt: item.updatedAt ?? item.createdAt,
+    archivedAt: item.archivedAt,
     downloadUrl: item.filePath ? `/api/items/${item.id}/download` : undefined,
     knowledgePath: item.knowledgeTarget
   };
+}
+
+async function removeInboxArtifact(item: PocketItem): Promise<void> {
+  if (!item.filePath) {
+    return;
+  }
+
+  const resolvedFilePath = path.resolve(item.filePath);
+  const inboxRoot = path.resolve(config.inboxDir);
+  if (!resolvedFilePath.startsWith(`${inboxRoot}${path.sep}`)) {
+    return;
+  }
+
+  const parentDir = path.dirname(resolvedFilePath);
+  const removalTarget = path.basename(parentDir) === item.id ? parentDir : resolvedFilePath;
+  await fs.rm(removalTarget, { recursive: true, force: true });
 }
 
 function toStorageRelPath(filePath: string | undefined): string | undefined {
