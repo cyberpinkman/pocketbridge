@@ -3,7 +3,12 @@ import path from "node:path";
 import { customAlphabet } from "nanoid";
 import type { Config } from "../config.js";
 import type { ItemFilters, PocketItem, PocketItemKind, PocketItemOrigin } from "../types.js";
-import { importExistingFile, writeUploadFile } from "./file-store.js";
+import {
+  absoluteStoragePath,
+  importExistingFile,
+  StoragePathError,
+  writeUploadFile
+} from "./file-store.js";
 import { detectMimeType } from "./mime.js";
 
 type MetadataFile = {
@@ -247,6 +252,9 @@ export class ItemStore {
         ...patch,
         updatedAt: nowIso()
       };
+      if (updated.storageRelPath) {
+        absoluteStoragePath(this.config, updated.storageRelPath);
+      }
 
       this.items[index] = updated;
       await this.saveItemMetadata(updated);
@@ -268,10 +276,14 @@ export class ItemStore {
       const [deleted] = this.items.splice(index, 1);
       await this.save();
       if (deleted.storageRelPath) {
-        await fs.rm(path.join(this.config.dataDir, path.dirname(deleted.storageRelPath)), {
-          force: true,
-          recursive: true
-        });
+        try {
+          await fs.rm(path.dirname(absoluteStoragePath(this.config, deleted.storageRelPath)), {
+            force: true,
+            recursive: true
+          });
+        } catch (error) {
+          if (!(error instanceof StoragePathError)) throw error;
+        }
       }
       return withDownloadUrl(deleted);
     });
@@ -365,7 +377,7 @@ export class ItemStore {
 
   private async saveItemMetadata(item: PocketItem): Promise<void> {
     if (!item.storageRelPath) return;
-    const metadataPath = path.join(this.config.dataDir, path.dirname(item.storageRelPath), "metadata.json");
+    const metadataPath = path.join(path.dirname(absoluteStoragePath(this.config, item.storageRelPath)), "metadata.json");
     await writeJsonAtomic(metadataPath, { item: withDownloadUrl(item) });
   }
 }

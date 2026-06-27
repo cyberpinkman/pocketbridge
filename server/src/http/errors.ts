@@ -1,4 +1,5 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
+import { StoragePathError } from "../storage/file-store.js";
 
 export class HttpError extends Error {
   constructor(
@@ -25,6 +26,11 @@ export function badRequest(message: string): never {
 }
 
 export function errorMiddleware(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
+  if (err instanceof StoragePathError) {
+    res.status(404).json({ error: { code: "NOT_FOUND", message: "Item file not found" } });
+    return;
+  }
+
   if (err instanceof HttpError) {
     res.status(err.status).json({ error: { code: err.code, message: err.message } });
     return;
@@ -38,4 +44,3 @@ export function errorMiddleware(err: unknown, _req: Request, res: Response, _nex
   console.error(err);
   res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } });
 }
-

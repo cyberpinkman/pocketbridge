@@ -228,6 +228,98 @@ test("archive can be restored and delete removes file item data", async () => {
   await assert.rejects(() => fs.access(itemDir));
 });
 
+test("delete ignores unsafe stored file paths outside the data directory", async () => {
+  const config = await testConfig();
+  const outsidePath = path.join(path.dirname(config.dataDir), "outside-delete.txt");
+  const unsafeItem = {
+    id: "itm_1782547200000_unsafe02",
+    kind: "file",
+    title: "Unsafe delete",
+    origin: "mac",
+    sourceDevice: "Mac",
+    mimeType: "text/plain",
+    sizeBytes: 6,
+    originalFilename: "outside-delete.txt",
+    storageRelPath: "../outside-delete.txt",
+    tags: [],
+    sharedToMobile: false,
+    status: "inbox",
+    createdAt: "2026-06-27T12:00:00.000Z",
+    updatedAt: "2026-06-27T12:00:00.000Z"
+  };
+  await fs.mkdir(path.dirname(config.metadataPath), { recursive: true });
+  await fs.writeFile(config.metadataPath, JSON.stringify({ items: [unsafeItem] }), "utf8");
+  await fs.writeFile(outsidePath, "secret", "utf8");
+
+  try {
+    const store = new ItemStore(config);
+    await store.init();
+
+    const deleted = await store.deleteItem(unsafeItem.id);
+
+    assert.equal(deleted?.id, unsafeItem.id);
+    assert.equal(await fs.readFile(outsidePath, "utf8"), "secret");
+    assert.equal(await store.getItem(unsafeItem.id), undefined);
+  } finally {
+    await fs.rm(outsidePath, { force: true });
+  }
+});
+
+test("delete ignores unsafe stored file paths outside the inbox directory", async () => {
+  const config = await testConfig();
+  const unsafeItem = {
+    id: "itm_1782547200000_unsafe04",
+    kind: "file",
+    title: "Metadata delete",
+    origin: "mac",
+    sourceDevice: "Mac",
+    mimeType: "application/json",
+    sizeBytes: 2,
+    originalFilename: "metadata.json",
+    storageRelPath: "metadata.json",
+    tags: [],
+    sharedToMobile: false,
+    status: "inbox",
+    createdAt: "2026-06-27T12:00:00.000Z",
+    updatedAt: "2026-06-27T12:00:00.000Z"
+  };
+  await fs.mkdir(path.dirname(config.metadataPath), { recursive: true });
+  await fs.writeFile(config.metadataPath, JSON.stringify({ items: [unsafeItem] }), "utf8");
+
+  const store = new ItemStore(config);
+  await store.init();
+
+  const deleted = await store.deleteItem(unsafeItem.id);
+  const metadata = JSON.parse(await fs.readFile(config.metadataPath, "utf8")) as { items: unknown[] };
+
+  assert.equal(deleted?.id, unsafeItem.id);
+  assert.deepEqual(metadata.items, []);
+  assert.equal(await store.getItem(unsafeItem.id), undefined);
+});
+
+test("update rejects unsafe stored file paths without mutating the item", async () => {
+  const config = await testConfig();
+  const store = new ItemStore(config);
+  await store.init();
+
+  const file = await store.createUploadedFileItem({
+    originalFilename: "safe.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("safe"),
+    origin: "mac",
+    sourceDevice: "Mac"
+  });
+  assert.ok(file.storageRelPath);
+
+  await assert.rejects(
+    () => store.updateItem(file.id, { storageRelPath: "../outside-update.txt" }),
+    /Storage path escapes inbox directory/
+  );
+
+  const unchanged = await store.getItem(file.id);
+  assert.equal(unchanged?.storageRelPath, file.storageRelPath);
+});
+
 test("concurrent file item updates preserve sidecar metadata", async () => {
   const config = await testConfig();
   const store = new ItemStore(config);

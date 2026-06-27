@@ -19,6 +19,7 @@ Status as of 2026-06-27 on branch `codex/mobile-flutter-scaffold`:
 - Runtime configuration for pairing URLs, generated pair codes, custom Obsidian/Snapzy directories, runtime directory creation, and upload-size fallback is covered by `npm test`.
 - Server restart persistence and API-level phone upload are covered by `npm run demo:smoke`.
 - Concurrent file-item metadata updates are serialized and covered by `npm test`.
+- File downloads, knowledge attachment copies, sidecar metadata writes, and file-item deletion now reject or ignore metadata `storageRelPath` values outside `data/inbox/`.
 - BLE `trusted -> away` API updates and WebSocket events are covered by HTTP tests and `npm run demo:smoke`.
 - Mac PocketInbox UI rendering for Snapzy imports and BLE state is covered by `npm run demo:ui-smoke`.
 - Mac PocketInbox displays generated Markdown paths after `Save`, covered by `npm run demo:ui-smoke`.

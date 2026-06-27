@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { Config } from "../config.js";
 import type { PocketItem } from "../types.js";
+import { absoluteStoragePath } from "./file-store.js";
 
 function slugify(title: string, fallback: string): string {
   const slug = title
@@ -67,7 +68,7 @@ type KnowledgeAttachment = {
 async function copyAttachment(config: Config, item: PocketItem): Promise<KnowledgeAttachment | undefined> {
   if (!item.storageRelPath) return undefined;
 
-  const source = path.join(config.dataDir, item.storageRelPath);
+  const source = absoluteStoragePath(config, item.storageRelPath);
   const attachmentsDir = path.join(config.obsidianDir, "attachments");
   const filename = safeAttachmentName(item);
   const target = path.join(attachmentsDir, filename);

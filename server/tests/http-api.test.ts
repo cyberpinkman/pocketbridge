@@ -352,6 +352,94 @@ test("HTTP API returns contract error codes for auth, missing items, and oversiz
   }
 });
 
+test("HTTP API refuses file item storage paths outside the data directory", async () => {
+  const config = await testConfig();
+  const outsidePath = path.join(path.dirname(config.dataDir), "outside-secret.txt");
+  const unsafeItem = {
+    id: "itm_1782547200000_unsafe01",
+    kind: "file",
+    title: "Unsafe file",
+    origin: "mac",
+    sourceDevice: "Mac",
+    mimeType: "text/plain",
+    sizeBytes: 6,
+    originalFilename: "outside-secret.txt",
+    storageRelPath: "../outside-secret.txt",
+    tags: [],
+    sharedToMobile: true,
+    status: "inbox",
+    createdAt: "2026-06-27T12:00:00.000Z",
+    updatedAt: "2026-06-27T12:00:00.000Z"
+  };
+
+  await fs.mkdir(path.dirname(config.metadataPath), { recursive: true });
+  await fs.writeFile(config.metadataPath, JSON.stringify({ items: [unsafeItem] }), "utf8");
+  await fs.writeFile(outsidePath, "secret", "utf8");
+
+  const runtimeState = await startRuntime(config);
+  try {
+    await errorResponse(
+      await fetch(`${runtimeState.config.serverBaseUrl}/api/items/${unsafeItem.id}/download`, {
+        headers: authHeaders(runtimeState.config, false)
+      }),
+      404,
+      "NOT_FOUND",
+      "Item file not found"
+    );
+
+    await errorResponse(
+      await fetch(`${runtimeState.config.serverBaseUrl}/api/knowledge/${unsafeItem.id}`, {
+        method: "POST",
+        headers: authHeaders(runtimeState.config),
+        body: JSON.stringify({ note: "Do not copy outside files." })
+      }),
+      404,
+      "NOT_FOUND",
+      "Item file not found"
+    );
+  } finally {
+    await runtimeState.runtime.close();
+    await fs.rm(outsidePath, { force: true });
+  }
+});
+
+test("HTTP API refuses file item storage paths outside the inbox directory", async () => {
+  const config = await testConfig();
+  const unsafeItem = {
+    id: "itm_1782547200000_unsafe03",
+    kind: "file",
+    title: "Metadata file",
+    origin: "mac",
+    sourceDevice: "Mac",
+    mimeType: "application/json",
+    sizeBytes: 2,
+    originalFilename: "metadata.json",
+    storageRelPath: "metadata.json",
+    tags: [],
+    sharedToMobile: true,
+    status: "inbox",
+    createdAt: "2026-06-27T12:00:00.000Z",
+    updatedAt: "2026-06-27T12:00:00.000Z"
+  };
+
+  await fs.mkdir(path.dirname(config.metadataPath), { recursive: true });
+  await fs.writeFile(config.metadataPath, JSON.stringify({ items: [unsafeItem] }), "utf8");
+
+  const runtimeState = await startRuntime(config);
+  try {
+    await errorResponse(
+      await fetch(`${runtimeState.config.serverBaseUrl}/api/items/${unsafeItem.id}/download`, {
+        headers: authHeaders(runtimeState.config, false)
+      }),
+      404,
+      "NOT_FOUND",
+      "Item file not found"
+    );
+  } finally {
+    await runtimeState.runtime.close();
+  }
+});
+
 test("websocket rejects invalid pair codes", async () => {
   const { runtime, config } = await startRuntime();
   const socket = new WebSocket(`${config.wsUrl}?pairCode=000000&client=mobile`);

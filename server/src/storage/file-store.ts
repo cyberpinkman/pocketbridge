@@ -7,6 +7,12 @@ export type StoredFile = {
   sizeBytes: number;
 };
 
+export class StoragePathError extends Error {
+  constructor(storageRelPath: string) {
+    super(`Storage path escapes inbox directory: ${storageRelPath}`);
+  }
+}
+
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -37,6 +43,16 @@ export async function importExistingFile(config: Config, itemId: string, sourceP
 }
 
 export function absoluteStoragePath(config: Config, storageRelPath: string): string {
-  return path.join(config.dataDir, storageRelPath);
-}
+  if (path.isAbsolute(storageRelPath)) {
+    throw new StoragePathError(storageRelPath);
+  }
 
+  const inboxRoot = path.resolve(config.inboxDir);
+  const resolved = path.resolve(config.dataDir, storageRelPath);
+  const relative = path.relative(inboxRoot, resolved);
+  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new StoragePathError(storageRelPath);
+  }
+
+  return resolved;
+}
