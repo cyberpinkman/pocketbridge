@@ -13,6 +13,7 @@ Keep the printed pair code available for curl smoke commands:
 
 ```bash
 export PAIR_CODE=<printed-pair-code>
+export BASE_URL=http://127.0.0.1:3000
 ```
 
 Open Mac UI:
@@ -29,10 +30,21 @@ If the phone cannot open the printed URL, restart with:
 PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run dev
 ```
 
+Paths under `data/` below are relative to the `server/` directory when using this start command.
+
 ## Demo Flow
 
 1. Show the Mac PocketBridge UI and pairing QR code.
-2. On the phone, open the Flutter app after it exists. Until then, use:
+2. On the phone, open the Flutter app and scan the QR code.
+
+Android run command in a second terminal from the repository root:
+
+```bash
+cd apps/mobile_flutter
+$HOME/development/flutter/bin/flutter run -d <android-device-id>
+```
+
+If no Android device is available yet, use the browser fallback:
 
 ```text
 http://<mac-lan-ip>:3000/mobile.html
@@ -63,23 +75,62 @@ data/watch/snapzy/
 Create a phone text item:
 
 ```bash
-curl -X POST http://127.0.0.1:3000/api/items/text \
+curl -X POST "$BASE_URL/api/items/text" \
   -H 'Content-Type: application/json' \
   -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
   -d '{"title":"Demo idea","text":"Phone to Mac to knowledge.","origin":"mobile","sourceDevice":"Demo Phone","tags":["demo"]}'
 ```
 
+Upload a demo file as a phone item:
+
+```bash
+printf 'demo file' > /tmp/pocketbridge-demo.txt
+curl -X POST "$BASE_URL/api/items/upload" \
+  -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
+  -F origin=mobile \
+  -F sourceDevice="Demo Phone" \
+  -F 'tags=["demo"]' \
+  -F file=@/tmp/pocketbridge-demo.txt
+```
+
 List inbox items:
 
 ```bash
-curl http://127.0.0.1:3000/api/items \
+curl "$BASE_URL/api/items" \
   -H "X-PocketBridge-Pair-Code: $PAIR_CODE"
+```
+
+Save an item to knowledge:
+
+```bash
+export ITEM_ID=<id-from-list-items>
+curl -X POST "$BASE_URL/api/knowledge/$ITEM_ID" \
+  -H 'Content-Type: application/json' \
+  -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
+  -d '{"tags":["pocketbridge","demo"],"note":"Saved during demo."}'
+```
+
+Share an item back to the phone:
+
+```bash
+curl -X POST "$BASE_URL/api/items/$ITEM_ID/share-to-mobile" \
+  -H 'Content-Type: application/json' \
+  -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
+  -d '{"sharedToMobile":true}'
+```
+
+Trigger Snapzy folder import:
+
+```bash
+# Run this from the `server/` directory when using the start command above.
+mkdir -p data/watch/snapzy
+printf 'snapzy demo' > data/watch/snapzy/demo-snapzy.txt
 ```
 
 Set BLE state:
 
 ```bash
-curl -X POST http://127.0.0.1:3000/api/ble/status \
+curl -X POST "$BASE_URL/api/ble/status" \
   -H 'Content-Type: application/json' \
   -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
   -d '{"status":"trusted","deviceName":"Demo Phone","rssi":-48}'

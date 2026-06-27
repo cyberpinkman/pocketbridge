@@ -27,6 +27,27 @@ If the phone cannot open the printed URL, restart with the Mac IP that the phone
 PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run dev
 ```
 
+## Mobile App
+
+The Android-first Flutter MVP lives in:
+
+```text
+apps/mobile_flutter/
+```
+
+Run it after the Mac server is up:
+
+```bash
+cd apps/mobile_flutter
+$HOME/development/flutter/bin/flutter run -d <android-device-id>
+```
+
+If no Android device is available, use the browser fallback printed by the server:
+
+```text
+http://<mac-lan-ip>:3000/mobile.html
+```
+
 ## Shared Contract
 
 Pinkman and Ding should treat this file as the API source of truth:
@@ -69,6 +90,8 @@ data/metadata.json
 data/obsidian/PocketBridge/
 data/watch/snapzy/
 ```
+
+When following the start command above, `data/` is created under `server/` because the server process is started from that directory. Override with `PB_DATA_DIR=<absolute-or-relative-path>` if needed.
 
 For the Snapzy MVP, export or copy screenshots into:
 
