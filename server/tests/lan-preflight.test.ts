@@ -27,6 +27,19 @@ test("LAN preflight advertises phone-reachable pairing URLs", async () => {
   ]);
 });
 
+test("LAN preflight accepts public host values that already include a port", async () => {
+  const result = await runLanPreflight({
+    publicHost: "127.0.0.1:4317",
+    pairCode: "431700"
+  });
+
+  assert.equal(result.publicHost, "127.0.0.1:4317");
+  assert.equal(result.advertisedBaseUrl, "http://127.0.0.1:4317");
+  assert.equal(result.advertisedWsUrl, "ws://127.0.0.1:4317/ws");
+  assert.equal(result.macUiUrl, "http://127.0.0.1:4317/");
+  assert.equal(result.mobileFallbackUrl, "http://127.0.0.1:4317/mobile.html");
+});
+
 test("explicit LAN preflight options override ambient URL env vars", async () => {
   const oldServerBaseUrl = process.env.PB_SERVER_BASE_URL;
   const oldWsUrl = process.env.PB_WS_URL;

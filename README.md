@@ -39,10 +39,10 @@ Mobile browser fallback: http://<mac-lan-ip>:3000/mobile.html
 LAN candidates: <detected IPv4 addresses>
 ```
 
-If the phone cannot open the printed URL, restart with the Mac IP that the phone can reach:
+If the phone cannot open the printed URL, restart with the Mac IP or URL that the phone can reach:
 
 ```bash
-PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run dev
+PB_PUBLIC_HOST=<phone-reachable-mac-ip-or-url> npm run dev
 ```
 
 Before a live run, verify the pairing URLs that will be embedded in the QR payload:
@@ -122,7 +122,7 @@ Key defaults:
 Runtime environment variables:
 
 - `PORT`: HTTP port, default `3000`
-- `PB_PUBLIC_HOST`: Mac IP/hostname embedded in QR payload for phone access
+- `PB_PUBLIC_HOST`: Mac IP, hostname, `host:port`, or full `http(s)://` URL embedded in QR payload for phone access
 - `PB_LAN_CHECK_PORT`: optional temporary port for `npm run demo:lan-check`; default `0` lets the OS pick a free port
 - `PB_SERVER_BASE_URL`: full override for the QR/API base URL
 - `PB_WS_URL`: full override for the WebSocket URL

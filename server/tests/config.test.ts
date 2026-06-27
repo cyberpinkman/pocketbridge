@@ -109,6 +109,51 @@ test("explicit server and websocket URL overrides take precedence over public ho
   );
 });
 
+test("public host accepts host-port and full URL forms for QR pairing", async () => {
+  await withEnv(
+    {
+      PORT: "3000",
+      PB_PUBLIC_HOST: "10.0.0.23:4317",
+      PB_PAIR_CODE: "123456"
+    },
+    () => {
+      const config = loadConfig();
+
+      assert.equal(config.serverBaseUrl, "http://10.0.0.23:4317");
+      assert.equal(config.wsUrl, "ws://10.0.0.23:4317/ws");
+    }
+  );
+
+  await withEnv(
+    {
+      PORT: "3000",
+      PB_PUBLIC_HOST: "http://10.0.0.23:4317/",
+      PB_PAIR_CODE: "123456"
+    },
+    () => {
+      const config = loadConfig();
+
+      assert.equal(config.serverBaseUrl, "http://10.0.0.23:4317");
+      assert.equal(config.wsUrl, "ws://10.0.0.23:4317/ws");
+    }
+  );
+});
+
+test("server base URL override normalizes the websocket URL path", async () => {
+  await withEnv(
+    {
+      PB_SERVER_BASE_URL: "https://demo.local:7777/",
+      PB_PAIR_CODE: "123456"
+    },
+    () => {
+      const config = loadConfig();
+
+      assert.equal(config.serverBaseUrl, "https://demo.local:7777");
+      assert.equal(config.wsUrl, "wss://demo.local:7777/ws");
+    }
+  );
+});
+
 test("loadConfig generates a six digit pair code when no override is set", async () => {
   await withEnv({}, () => {
     assert.match(loadConfig().pairCode, /^\d{6}$/);

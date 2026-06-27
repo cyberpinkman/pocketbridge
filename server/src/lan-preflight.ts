@@ -5,6 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import { WebSocket } from "ws";
 import type { Config } from "./config.js";
+import {
+  serverBaseUrlFromPublicHost,
+  websocketUrlFromServerBaseUrl
+} from "./config.js";
 import { createPocketBridgeRuntime, type PocketBridgeRuntime } from "./app.js";
 
 type JsonObject = Record<string, unknown>;
@@ -56,7 +60,7 @@ async function config(options: LanPreflightOptions): Promise<Config> {
   const port = options.port ?? numberOption(process.env.PB_LAN_CHECK_PORT, 0);
   const publicHost = options.publicHost ?? defaultPublicHost();
   const pairCode = options.pairCode ?? process.env.PB_PAIR_CODE ?? "123456";
-  const advertisedBaseUrl = `http://${publicHost}:${port}`;
+  const advertisedBaseUrl = serverBaseUrlFromPublicHost(publicHost, port);
   return {
     port,
     dataDir,
@@ -67,7 +71,7 @@ async function config(options: LanPreflightOptions): Promise<Config> {
     pairCode,
     deviceName: options.deviceName ?? process.env.PB_DEVICE_NAME ?? os.hostname(),
     serverBaseUrl: advertisedBaseUrl,
-    wsUrl: advertisedBaseUrl.replace(/^http/, "ws") + "/ws",
+    wsUrl: websocketUrlFromServerBaseUrl(advertisedBaseUrl),
     lanAddresses: lanIps(),
     maxUploadBytes: 100 * 1024 * 1024,
     pairingExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
@@ -78,8 +82,8 @@ async function listen(runtime: PocketBridgeRuntime, cfg: Config, publicHost: str
   await new Promise<void>((resolve) => runtime.server.listen(cfg.port, "127.0.0.1", resolve));
   const address = runtime.server.address() as AddressInfo;
   cfg.port = address.port;
-  cfg.serverBaseUrl = `http://${publicHost}:${address.port}`;
-  cfg.wsUrl = `ws://${publicHost}:${address.port}/ws`;
+  cfg.serverBaseUrl = serverBaseUrlFromPublicHost(publicHost, address.port);
+  cfg.wsUrl = websocketUrlFromServerBaseUrl(cfg.serverBaseUrl);
 }
 
 async function json(url: string, options: RequestInit = {}): Promise<JsonObject> {

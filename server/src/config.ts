@@ -54,12 +54,52 @@ function generatePairCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function normalizeBaseUrl(value: string): string {
+  const url = new URL(value);
+  url.pathname = trimTrailingSlash(url.pathname);
+  url.search = "";
+  url.hash = "";
+  return trimTrailingSlash(url.toString());
+}
+
+function hasExplicitPort(host: string): boolean {
+  try {
+    return new URL(`http://${host}`).port !== "";
+  } catch {
+    return false;
+  }
+}
+
+export function serverBaseUrlFromPublicHost(publicHost: string, port: number): string {
+  const trimmed = publicHost.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return normalizeBaseUrl(trimmed);
+  }
+
+  return normalizeBaseUrl(`http://${trimmed}${hasExplicitPort(trimmed) ? "" : `:${port}`}`);
+}
+
+export function websocketUrlFromServerBaseUrl(serverBaseUrl: string): string {
+  const url = new URL(serverBaseUrl);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.pathname = "/ws";
+  url.search = "";
+  url.hash = "";
+  return trimTrailingSlash(url.toString());
+}
+
 export function loadConfig(): Config {
   const port = numberEnv("PORT", 3000);
   const dataDir = path.resolve(process.env.PB_DATA_DIR ?? defaultDataDir());
   const lanAddresses = lanIps();
   const publicHost = process.env.PB_PUBLIC_HOST ?? lanAddresses[0];
-  const serverBaseUrl = process.env.PB_SERVER_BASE_URL ?? `http://${publicHost}:${port}`;
+  const serverBaseUrl = process.env.PB_SERVER_BASE_URL
+    ? normalizeBaseUrl(process.env.PB_SERVER_BASE_URL)
+    : serverBaseUrlFromPublicHost(publicHost, port);
 
   return {
     port,
@@ -71,7 +111,9 @@ export function loadConfig(): Config {
     pairCode: process.env.PB_PAIR_CODE ?? generatePairCode(),
     deviceName: process.env.PB_DEVICE_NAME ?? os.hostname(),
     serverBaseUrl,
-    wsUrl: process.env.PB_WS_URL ?? serverBaseUrl.replace(/^http/, "ws") + "/ws",
+    wsUrl: process.env.PB_WS_URL
+      ? normalizeBaseUrl(process.env.PB_WS_URL)
+      : websocketUrlFromServerBaseUrl(serverBaseUrl),
     lanAddresses,
     maxUploadBytes: positiveNumberEnv("PB_MAX_UPLOAD_MB", 100) * 1024 * 1024,
     pairingExpiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
