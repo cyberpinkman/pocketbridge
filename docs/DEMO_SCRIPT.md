@@ -1,86 +1,231 @@
 # PocketBridge Demo Script
 
-## Start
+This is the local runbook for the hackathon demo. It assumes the current repository shape, the shared upstream contract in `docs/SHARED_CONTRACT.md`, and the teammate brief in `/Users/zerone/Documents/pocketbridge-teammate-brief.md`.
 
-Run from the repository root:
+## Teammate Brief Alignment
 
-```bash
-cd server
-npm run dev
-```
-
-Keep the printed pair code available for curl smoke commands:
-
-```bash
-export PAIR_CODE=<printed-pair-code>
-```
-
-Open Mac UI:
+Current demo positioning:
 
 ```text
-http://<mac-lan-ip>:3000/
+Phone = inspiration collector and pocket key.
+Mac = local-first data base and personal knowledge brain.
 ```
 
-If the LAN IP changes, use the address printed by the server.
+Implemented and verified locally:
 
-If the phone cannot open the printed URL, restart with:
+- Mac local service, Desktop page, phone browser fallback, QR/pair-code pairing, WebSocket sync.
+- Phone/Mac text and file upload into PocketInbox.
+- Local JSON storage under `data/metadata.json` and files under `data/inbox/`.
+- Searchable PocketInbox in the Mac UI.
+- Read-only demo API views: `GET /api/inbox` and `GET /api/search?q=...`.
+- Knowledge export into `data/obsidian/PocketBridge/`.
+- Snapzy watch-folder import from `data/watch/snapzy/`.
+- PocketKey demo states through `/api/ble/status`: `trusted`, `away`, `locked`.
+- Optional BLEUnlock event-script bridge: `integrations/bleunlock/pocketkey-status.sh`.
+- Optional BLE Capsule text bridge: `integrations/ble-capsule/capsule-text.sh`.
+- Mobile browser fallback at `/mobile.html` for the current machine when Flutter/Dart are unavailable.
+
+Still demo/future-facing:
+
+- Full BLE GATT transport and chunking protocol.
+- Pro Relay cloud transfer, resumable large files, payments, and AI parsing.
+
+## 0. Pre-demo Rehearsal
+
+Run the full rehearsal before showing the product:
 
 ```bash
-PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run dev
+npm run env:check
+npm run demo:live
 ```
 
-## Demo Flow
+This checks the core path in one command:
 
-1. Show the Mac PocketBridge UI and pairing QR code.
-2. On the phone, open the Flutter app after it exists. Until then, use:
+- pairing payload and WebSocket connection
+- phone text upload
+- phone file upload
+- Mac-to-phone share and download
+- Markdown knowledge export
+- Snapzy watch-folder auto-import
+- PocketKey status flow: `trusted -> away -> locked`
+
+If this fails, use the failure output as the pre-demo fix list.
+
+`npm run env:check` should be treated as the source of truth for whether this machine can run the Flutter app. If it reports Flutter or Dart as blocked, use the browser fallback path below.
+
+## 1. Start PocketBridge
+
+```bash
+npm run build
+npm run start
+```
+
+The startup log prints:
+
+- Mac UI URL
+- mobile browser fallback URL
+- Snapzy watch folder
+- LAN URL candidates
+
+For a physical phone, pick the LAN URL that is reachable from the phone. If the printed LAN candidate is wrong, restart with:
+
+```bash
+PB_PUBLIC_HOST=<Mac-LAN-IP> npm run start
+```
+
+`PB_PUBLIC_HOST` may be a bare IP/host or a full URL. Bare hosts use the active server port.
+
+## 2. Pair Phone
+
+Open the Mac UI:
 
 ```text
-http://<mac-lan-ip>:3000/mobile.html
+http://<Mac-LAN-IP>:3000/
 ```
 
-3. Upload a text idea from the phone.
-4. Upload a photo or file from the phone.
-5. Show PocketInbox updating on the Mac.
-6. Click `Save` on one item and show the generated Markdown under:
+Show the QR code and pair code in the left sidebar.
+
+Flutter path:
+
+- Scan the QR payload from the Flutter app.
+- The app should store `serverBaseUrl`, `wsUrl`, and `pairCode`.
+
+Fallback path while Flutter / dart are unavailable on this machine:
+
+```text
+http://<Mac-LAN-IP>:3000/mobile.html
+```
+
+The browser fallback uses the same `/api` and `/ws` contract as Flutter.
+
+## 3. Phone To Mac
+
+From the phone or fallback page:
+
+1. Upload a text note.
+2. Upload a file or image.
+3. Show PocketInbox updating in the Mac UI.
+
+Expected signs:
+
+- New rows appear in PocketInbox.
+- Event Log shows received or updated item events.
+- Item details include origin, device, status, and download path for file-backed items.
+
+## 4. Knowledge Export
+
+Select a phone-created text item or file item in PocketInbox.
+
+Click `Export to knowledge base`.
+
+Show the generated Markdown under:
 
 ```text
 data/obsidian/PocketBridge/
 ```
 
-7. Save a Snapzy screenshot into:
+Expected signs:
+
+- Item status becomes `saved_to_knowledge` in the upstream API shape.
+- The item detail shows a knowledge path.
+- The Markdown contains `## Summary`, `## Content`, source frontmatter, and any attached asset link.
+
+## 5. Snapzy Import
+
+Save or copy a screenshot into:
 
 ```text
 data/watch/snapzy/
 ```
 
-8. Show the screenshot appearing in PocketInbox.
-9. Click `Share` on the screenshot.
-10. Refresh the phone page and download the shared screenshot.
-11. Click `Trusted`, then `Away`, then `Locked` in the Mac UI to demonstrate PocketKey state.
+Expected signs:
 
-## Useful Smoke Commands
+- The running server auto-imports the new file.
+- PocketInbox shows the Snapzy item.
 
-Create a phone text item:
+Fallback:
 
-```bash
-curl -X POST http://127.0.0.1:3000/api/items/text \
-  -H 'Content-Type: application/json' \
-  -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
-  -d '{"title":"Demo idea","text":"Phone to Mac to knowledge.","origin":"mobile","sourceDevice":"Demo Phone","tags":["demo"]}'
+- Click `Import Snapzy folder` in the Mac UI.
+
+## 6. Mac To Phone
+
+Select a file-backed item in PocketInbox.
+
+Click `Send to phone`.
+
+On the phone fallback or Flutter app:
+
+1. Refresh shared items.
+2. Download the shared file.
+
+Expected signs:
+
+- Phone Outbox count increases on Mac.
+- The phone sees the item through `GET /api/items?sharedToMobile=true`.
+- File download uses `GET /api/items/:id/download`.
+
+## 7. PocketKey
+
+Use the BLE Trust Status panel in the Mac UI:
+
+1. Click `Trust nearby`.
+2. Click `Mark away`.
+3. Click `Mark locked`.
+
+Expected status flow:
+
+```text
+trusted -> away -> locked
 ```
 
-List inbox items:
+This demonstrates the BLEUnlock state API without requiring the real BLE bridge during the demo.
+
+Optional BLEUnlock event hook:
 
 ```bash
-curl http://127.0.0.1:3000/api/items \
-  -H "X-PocketBridge-Pair-Code: $PAIR_CODE"
+PB_PAIR_CODE=<pair-code> ./integrations/bleunlock/pocketkey-status.sh trusted -49
+PB_PAIR_CODE=<pair-code> ./integrations/bleunlock/pocketkey-status.sh away -82
+PB_PAIR_CODE=<pair-code> ./integrations/bleunlock/pocketkey-status.sh locked
 ```
 
-Set BLE state:
+The script posts to `/api/ble/status`, so it uses the same WebSocket update path as the Mac UI controls.
+
+## 8. MCP / API Showcase
+
+Use these endpoints to show that AI tools can read PocketInbox through a stable local API:
 
 ```bash
-curl -X POST http://127.0.0.1:3000/api/ble/status \
-  -H 'Content-Type: application/json' \
-  -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
-  -d '{"status":"trusted","deviceName":"Demo Phone","rssi":-48}'
+curl http://127.0.0.1:3000/api/inbox \
+  -H "X-PocketBridge-Pair-Code: <pair-code>"
+
+curl "http://127.0.0.1:3000/api/search?q=idea" \
+  -H "X-PocketBridge-Pair-Code: <pair-code>"
 ```
+
+The same pair code shown in the Mac UI works for this demo. `GET /api/items` remains the upstream contract endpoint for mobile clients.
+
+Optional BLE Capsule text proof:
+
+```bash
+PB_PAIR_CODE=<pair-code> ./integrations/ble-capsule/capsule-text.sh "short offline note from BLE"
+```
+
+This lands in PocketInbox through `POST /api/items/text` with the `ble-capsule` tag.
+
+## 9. Fallbacks
+
+If Flutter is blocked:
+
+- Use `http://<Mac-LAN-IP>:3000/mobile.html`.
+- State clearly that local `flutter` and `dart` commands are unavailable on this machine, but the API contract and browser fallback are verified.
+
+If Snapzy automation is blocked:
+
+- Copy a file manually into `data/watch/snapzy/`.
+- Click `Import Snapzy folder` if auto-import does not fire quickly.
+
+If the phone cannot reach the Mac:
+
+- Confirm both devices are on the same network.
+- Use one of the printed LAN candidates.
+- Restart with `PB_PUBLIC_HOST=<Mac-LAN-IP> npm run start`.

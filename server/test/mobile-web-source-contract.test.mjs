@@ -1,0 +1,28 @@
+import { strict as assert } from "node:assert";
+import fs from "node:fs/promises";
+import test from "node:test";
+
+test("Mobile browser fallback targets the upstream PocketBridge API contract", async () => {
+  const index = await fs.readFile("apps/mac_desktop/web/index.html", "utf8");
+  const html = await fs.readFile("apps/mac_desktop/web/mobile.html", "utf8");
+  const script = await fs.readFile("apps/mac_desktop/web/mobile.js", "utf8");
+
+  assert.match(index, /href="\/mobile\.html"/);
+
+  assert.match(html, /PocketBridge Mobile/);
+  assert.match(html, /id="textForm"/);
+  assert.match(html, /id="fileForm"/);
+  assert.match(html, /id="items"/);
+  assert.match(html, /src="\/mobile\.js"/);
+
+  assert.match(script, /\/api\/pairing/);
+  assert.match(script, /X-PocketBridge-Pair-Code/);
+  assert.match(script, /\/api\/items\/text/);
+  assert.match(script, /\/api\/items\/upload/);
+  assert.match(script, /\/api\/items\?sharedToMobile=true/);
+  assert.match(script, /wsUrl/);
+  assert.match(script, /client=mobile/);
+  assert.doesNotMatch(script, /fetch\([^)]*["']\/upload/);
+  assert.doesNotMatch(script, /fetch\([^)]*["']\/share/);
+  assert.doesNotMatch(script, /pairing\/confirm/);
+});

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PocketBridge Mobile</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="mobile-body">
+    <main class="mobile-shell">
+      <header class="mobile-header">
+        <div>
+          <p class="section-label">Phone Fallback</p>
+          <h1>PocketBridge Mobile</h1>
+          <p id="status">Starting bridge session</p>
+        </div>
+        <button class="secondary-button" id="refresh">Refresh</button>
+      </header>
+
+      <section class="panel mobile-panel">
+        <div class="section-label">Pairing</div>
+        <div class="pair-summary">
+          <span id="deviceName">PocketBridge Mac</span>
+          <code id="pairCode">Pair code pending</code>
+        </div>
+      </section>
+
+      <section class="panel mobile-panel">
+        <div class="section-label">Send to Mac</div>
+        <form id="textForm" class="mobile-stack">
+          <input id="textTitle" name="title" placeholder="Title" />
+          <textarea id="textBody" name="text" rows="5" placeholder="Text, idea, link, note"></textarea>
+          <button class="primary-button" type="submit">Upload text</button>
+        </form>
+
+        <form id="fileForm" class="mobile-stack">
+          <input id="fileInput" name="file" type="file" />
+          <button class="secondary-button" type="submit">Upload file</button>
+        </form>
+      </section>
+
+      <section class="panel mobile-panel">
+        <div class="section-label">From Mac</div>
+        <div id="items" class="mobile-items"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/mobile.js"></script>
+  </body>
+</html>

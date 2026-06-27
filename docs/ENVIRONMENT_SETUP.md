@@ -1,5 +1,7 @@
 # PocketBridge Local Environment
 
+Sync note: this file was imported from the remote Flutter scaffold branch as the reference environment used to generate the Android project. On this local machine, `npm run env:check` currently reports Flutter and Dart as missing, so use `docs/DEMO_SCRIPT.md` and the browser phone fallback until the Flutter toolchain is installed here.
+
 **Date:** 2026-06-27  
 **Machine:** macOS 26.5.1 arm64  
 
