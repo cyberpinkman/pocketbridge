@@ -14,6 +14,10 @@ test("manual QA checklist covers deferred physical-device validation", async () 
   assert.match(checklist, /Android Real Phone LAN And QR/);
   assert.match(checklist, /Mobile Browser Fallback/);
   assert.match(checklist, /Snapzy Integration/);
+  assert.match(checklist, /Knowledge export writes Markdown under `data\/obsidian\/PocketBridge\/`/);
+  assert.match(checklist, /Attached asset is copied under `data\/obsidian\/PocketBridge\/attachments\/`/);
+  assert.doesNotMatch(checklist, /data\/obsidian\/PocketBridge\/inbox/);
+  assert.doesNotMatch(checklist, /data\/obsidian\/PocketBridge\/assets\/pocketbridge/);
   assert.match(checklist, /BLEUnlock Integration/);
   assert.match(checklist, /curl -X POST "\$BASE_URL\/api\/ble\/status"/);
   assert.doesNotMatch(checklist, /integrations\//);

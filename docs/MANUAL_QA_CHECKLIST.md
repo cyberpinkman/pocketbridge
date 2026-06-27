@@ -126,8 +126,8 @@ Pass criteria:
 
 - Item appears with `origin=snapzy`.
 - File is stored under `data/inbox/YYYY-MM-DD/<itemId>/original`.
-- Knowledge export writes Markdown under `data/obsidian/PocketBridge/inbox`.
-- Attached asset is copied under `data/obsidian/PocketBridge/assets/pocketbridge`.
+- Knowledge export writes Markdown under `data/obsidian/PocketBridge/`.
+- Attached asset is copied under `data/obsidian/PocketBridge/attachments/`.
 
 Evidence to save:
 

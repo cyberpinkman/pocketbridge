@@ -37,6 +37,7 @@ Status as of 2026-06-28 on branch `codex/mobile-flutter-scaffold`:
 - GitHub Actions CI is configured for the current subproject layout: server build/tests/smoke/UI smoke/LAN preflight plus Flutter analyze/test/debug APK.
 - Flutter Android CI has explicit job/step timeouts and builds the debug APK with `--no-pub` after dependency installation to prevent stale Actions runs from blocking acceptance.
 - Manual device-bound QA steps are documented in `docs/MANUAL_QA_CHECKLIST.md` for later Android phone, LAN/hotspot, Snapzy, and BLEUnlock validation.
+- Manual Snapzy/knowledge QA path expectations are covered by `npm test` and match the shared contract: Markdown under `data/obsidian/PocketBridge/` and copied attachments under `data/obsidian/PocketBridge/attachments/`.
 - Android real-device verification and live LAN/hotspot rehearsal from an actual phone remain manual follow-ups.
 - Checkboxes below track implemented and locally verified work. Unchecked items require physical-device or live-demo evidence.
 
