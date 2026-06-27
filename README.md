@@ -76,7 +76,10 @@ Key defaults:
 - Upload text: `POST /api/items/text`
 - Upload file: `POST /api/items/upload`
 - List items: `GET /api/items`
+- Search items: `GET /api/items/search?q=<query>`
 - Share to phone: `POST /api/items/:id/share-to-mobile`
+- Archive or restore: `POST /api/items/:id/archive`
+- Delete item: `DELETE /api/items/:id`
 - Knowledge export: `POST /api/knowledge/:id`
 - BLE status: `GET /api/ble/status`, `POST /api/ble/status`
 

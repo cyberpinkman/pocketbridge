@@ -9,6 +9,9 @@ const els = {
   serverUrl: document.querySelector("#serverUrl"),
   pairCode: document.querySelector("#pairCode"),
   items: document.querySelector("#items"),
+  searchInput: document.querySelector("#searchInput"),
+  includeArchived: document.querySelector("#includeArchived"),
+  search: document.querySelector("#search"),
   refresh: document.querySelector("#refresh"),
   textForm: document.querySelector("#textForm"),
   textTitle: document.querySelector("#textTitle"),
@@ -128,6 +131,7 @@ function itemSummary(item) {
   const chunks = [item.kind, item.origin, item.sourceDevice, new Date(item.createdAt).toLocaleString()];
   if (item.sharedToMobile) chunks.push("shared");
   if (item.status === "saved_to_knowledge") chunks.push("knowledge");
+  if (item.archivedAt) chunks.push("archived");
   return chunks.join(" / ");
 }
 
@@ -150,6 +154,8 @@ function renderItems(items) {
       <div class="actions">
         <button data-action="share">Share</button>
         <button data-action="knowledge">Save</button>
+        <button data-action="archive">${item.archivedAt ? "Restore" : "Archive"}</button>
+        <button data-action="delete">Delete</button>
         ${item.downloadUrl ? `<button data-action="download">Download</button>` : ""}
       </div>
     `;
@@ -161,13 +167,33 @@ function renderItems(items) {
     row.querySelector('[data-action="knowledge"]').addEventListener("click", (event) =>
       saveKnowledge(item.id, event.currentTarget)
     );
+    row.querySelector('[data-action="archive"]').addEventListener("click", (event) =>
+      archiveItem(item, event.currentTarget)
+    );
+    row.querySelector('[data-action="delete"]').addEventListener("click", (event) =>
+      deleteItem(item, event.currentTarget)
+    );
     row.querySelector('[data-action="download"]')?.addEventListener("click", (event) => downloadItem(item, event.currentTarget));
     els.items.append(row);
   }
 }
 
+function itemsEndpoint() {
+  const params = new URLSearchParams();
+  const query = els.searchInput.value.trim();
+  if (els.includeArchived.checked) params.set("includeArchived", "true");
+
+  if (query) {
+    params.set("q", query);
+    return `/api/items/search?${params.toString()}`;
+  }
+
+  const queryString = params.toString();
+  return `/api/items${queryString ? `?${queryString}` : ""}`;
+}
+
 async function loadItems() {
-  const payload = await api("/api/items");
+  const payload = await api(itemsEndpoint());
   renderItems(payload.items);
 }
 
@@ -198,6 +224,30 @@ async function saveKnowledge(id, target) {
   });
 }
 
+async function archiveItem(item, target) {
+  const archived = !item.archivedAt;
+  await runAction(archived ? "Archive" : "Restore", target, async () => {
+    await api(`/api/items/${item.id}/archive`, {
+      method: "POST",
+      headers: apiHeaders(),
+      body: JSON.stringify({ archived })
+    });
+    await loadItems();
+  });
+}
+
+async function deleteItem(item, target) {
+  if (!window.confirm(`Delete "${item.title}" from PocketBridge?`)) return;
+
+  await runAction("Delete", target, async () => {
+    await api(`/api/items/${item.id}`, {
+      method: "DELETE",
+      headers: apiHeaders(false)
+    });
+    await loadItems();
+  });
+}
+
 async function downloadItem(item, target) {
   await runAction("Download", target, async () => {
     const response = await fetch(`${state.pairing.serverBaseUrl}${item.downloadUrl}`, {
@@ -214,6 +264,15 @@ async function downloadItem(item, target) {
   });
 }
 
+els.search.addEventListener("click", () => runAction("Search", els.search, loadItems));
+els.searchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    void runAction("Search", els.search, loadItems);
+  }
+});
+els.includeArchived.addEventListener("change", () => {
+  void runAction("Refresh", els.includeArchived, loadItems);
+});
 els.refresh.addEventListener("click", () => runAction("Refresh", els.refresh, loadItems));
 
 els.textForm.addEventListener("submit", async (event) => {

@@ -67,8 +67,9 @@ data/watch/snapzy/
 
 8. Show the screenshot appearing in PocketInbox.
 9. Click `Share` on the screenshot.
-10. Refresh the phone page and download the shared screenshot.
-11. Click `Trusted`, then `Away`, then `Locked` in the Mac UI to demonstrate PocketKey state.
+10. Use `Search` or `Show archived` in PocketInbox if the list is crowded.
+11. Refresh the phone page and download the shared screenshot.
+12. Click `Trusted`, then `Away`, then `Locked` in the Mac UI to demonstrate PocketKey state.
 
 ## Useful Smoke Commands
 
@@ -100,6 +101,13 @@ curl "$BASE_URL/api/items" \
   -H "X-PocketBridge-Pair-Code: $PAIR_CODE"
 ```
 
+Search inbox items:
+
+```bash
+curl "$BASE_URL/api/items/search?q=demo" \
+  -H "X-PocketBridge-Pair-Code: $PAIR_CODE"
+```
+
 Save an item to knowledge:
 
 ```bash
@@ -117,6 +125,27 @@ curl -X POST "$BASE_URL/api/items/$ITEM_ID/share-to-mobile" \
   -H 'Content-Type: application/json' \
   -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
   -d '{"sharedToMobile":true}'
+```
+
+Archive or restore an item:
+
+```bash
+curl -X POST "$BASE_URL/api/items/$ITEM_ID/archive" \
+  -H 'Content-Type: application/json' \
+  -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
+  -d '{"archived":true}'
+
+curl -X POST "$BASE_URL/api/items/$ITEM_ID/archive" \
+  -H 'Content-Type: application/json' \
+  -H "X-PocketBridge-Pair-Code: $PAIR_CODE" \
+  -d '{"archived":false}'
+```
+
+Delete a disposable item:
+
+```bash
+curl -X DELETE "$BASE_URL/api/items/$ITEM_ID" \
+  -H "X-PocketBridge-Pair-Code: $PAIR_CODE"
 ```
 
 Trigger Snapzy folder import:
