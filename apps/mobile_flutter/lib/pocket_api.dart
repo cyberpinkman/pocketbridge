@@ -133,25 +133,22 @@ class PocketBridgeApi {
   }
 
   Future<List<PocketItem>> listSharedItems() async {
-    final response = await _client.get(
-      _uri('/api/items?sharedToMobile=true'),
-      headers: _authHeaders,
-    );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw PocketApiException(
-        _errorMessage(response),
-        statusCode: response.statusCode,
-      );
+    return listItems(sharedToMobile: true);
+  }
+
+  Future<List<PocketItem>> listItems({bool? sharedToMobile}) async {
+    final queryParameters = <String, String>{};
+    if (sharedToMobile != null) {
+      queryParameters['sharedToMobile'] = sharedToMobile.toString();
     }
 
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic> || decoded['items'] is! List) {
-      throw const FormatException('Items response must include items[]');
-    }
-    return (decoded['items'] as List)
-        .whereType<Map<String, dynamic>>()
-        .map(PocketItem.fromJson)
-        .toList(growable: false);
+    final response = await _client.get(
+      _uri('/api/items').replace(
+        queryParameters: queryParameters.isEmpty ? null : queryParameters,
+      ),
+      headers: _authHeaders,
+    );
+    return _itemsFromResponse(response);
   }
 
   Future<PocketDownloadedFile> download(PocketItem item) async {
@@ -258,6 +255,24 @@ PocketItem _itemFromBody(String body) {
     throw const FormatException('Item response must include item object');
   }
   return PocketItem.fromJson(decoded['item'] as Map<String, dynamic>);
+}
+
+List<PocketItem> _itemsFromResponse(http.Response response) {
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw PocketApiException(
+      _errorMessage(response),
+      statusCode: response.statusCode,
+    );
+  }
+
+  final decoded = jsonDecode(response.body);
+  if (decoded is! Map<String, dynamic> || decoded['items'] is! List) {
+    throw const FormatException('Items response must include items[]');
+  }
+  return (decoded['items'] as List)
+      .whereType<Map<String, dynamic>>()
+      .map(PocketItem.fromJson)
+      .toList(growable: false);
 }
 
 String _errorMessage(http.Response response) =>

@@ -134,6 +134,7 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
 
     try {
       await nextApi.checkHealth();
+      await nextApi.listItems();
       final sharedItems = await nextApi.listSharedItems();
 
       if (persist) {

@@ -92,6 +92,30 @@ void main() {
     },
   );
 
+  test('listItems calls the unfiltered inbox endpoint with auth', () async {
+    final api = PocketBridgeApi(
+      _pairing(),
+      client: MockClient((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.toString(), 'http://mac.local:3000/api/items');
+        expect(request.headers['X-PocketBridge-Pair-Code'], '123456');
+        return http.Response(
+          jsonEncode({
+            'items': [_textItemJson(), _fileItemJson()],
+          }),
+          200,
+        );
+      }),
+    );
+
+    final items = await api.listItems();
+
+    expect(items.map((item) => item.id), [
+      'itm_1782547200000_a9f4c21b',
+      'itm_1782547200000_b7e2c31a',
+    ]);
+  });
+
   test('listSharedItems calls the shared-to-mobile filter with auth', () async {
     final api = PocketBridgeApi(
       _pairing(),
