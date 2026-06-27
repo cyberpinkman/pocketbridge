@@ -61,6 +61,7 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   Timer? _reconnectTimer;
   List<PocketItem> _sharedItems = const [];
   List<UploadHistoryEntry> _recentUploads = const [];
+  Map<String, double?> _downloadProgressByItem = const {};
   _PendingUpload? _lastFailedUpload;
   PlatformFile? _activeFilePreview;
   int _selectedIndex = 0;
@@ -192,6 +193,7 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
       _pairing = null;
       _api = null;
       _sharedItems = const [];
+      _downloadProgressByItem = const {};
       _status = 'Not paired';
       _selectedIndex = 0;
     });
@@ -388,10 +390,42 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   Future<void> _downloadItem(PocketItem item) async {
     final api = _requireApi();
     await _run(() async {
+      if (mounted) {
+        setState(() {
+          _downloadProgressByItem = {..._downloadProgressByItem, item.id: 0};
+          _status = 'Downloading ${item.title}';
+        });
+      }
       final directory = await getApplicationDocumentsDirectory();
-      final downloaded = await api.downloadToDirectory(item, directory);
+      final downloaded = await api.downloadToDirectory(
+        item,
+        directory,
+        onProgress: (receivedBytes, totalBytes) {
+          if (!mounted) return;
+          setState(() {
+            _downloadProgressByItem = {
+              ..._downloadProgressByItem,
+              item.id: totalBytes > 0
+                  ? (receivedBytes / totalBytes).clamp(0, 1)
+                  : null,
+            };
+          });
+        },
+      );
+      if (mounted) {
+        setState(() {
+          _status = 'Downloaded ${downloaded.filename}';
+        });
+      }
       _showSnack('Downloaded: ${downloaded.filename}');
       unawaited(OpenFilex.open(downloaded.path, type: downloaded.contentType));
+    }).whenComplete(() {
+      if (!mounted) return;
+      final nextProgress = Map<String, double?>.from(_downloadProgressByItem)
+        ..remove(item.id);
+      if (nextProgress.length != _downloadProgressByItem.length) {
+        setState(() => _downloadProgressByItem = nextProgress);
+      }
     });
   }
 
@@ -446,10 +480,11 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
             ? null
             : _retryLastFailedUpload,
       ),
-      _SharedPage(
+      SharedPage(
         paired: paired,
         busy: _busy,
         items: _sharedItems,
+        downloadProgressByItem: _downloadProgressByItem,
         onRefresh: () => _loadSharedItems(),
         onDownload: _downloadItem,
       ),
@@ -700,11 +735,13 @@ class _UploadHistoryTile extends StatelessWidget {
   }
 }
 
-class _SharedPage extends StatelessWidget {
-  const _SharedPage({
+class SharedPage extends StatelessWidget {
+  const SharedPage({
+    super.key,
     required this.paired,
     required this.busy,
     required this.items,
+    required this.downloadProgressByItem,
     required this.onRefresh,
     required this.onDownload,
   });
@@ -712,6 +749,7 @@ class _SharedPage extends StatelessWidget {
   final bool paired;
   final bool busy;
   final List<PocketItem> items;
+  final Map<String, double?> downloadProgressByItem;
   final Future<void> Function() onRefresh;
   final ValueChanged<PocketItem> onDownload;
 
@@ -741,6 +779,8 @@ class _SharedPage extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         itemBuilder: (context, index) {
           final item = items[index];
+          final downloading = downloadProgressByItem.containsKey(item.id);
+          final downloadProgress = downloadProgressByItem[item.id];
           return ListTile(
             leading: CircleAvatar(child: Icon(_iconForKind(item.kind))),
             title: Text(
@@ -748,16 +788,33 @@ class _SharedPage extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            subtitle: Text(
-              '${item.kind} / ${item.origin} / ${_formatDate(item.createdAt)}',
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${item.kind} / ${item.origin} / ${_formatDate(item.createdAt)}',
+                ),
+                if (downloading)
+                  Text(
+                    downloadProgress == null
+                        ? 'Downloading'
+                        : 'Downloading ${(downloadProgress * 100).round()}%',
+                  ),
+              ],
             ),
-            trailing: IconButton.filledTonal(
-              onPressed: item.downloadable && !busy
-                  ? () => onDownload(item)
-                  : null,
-              icon: const Icon(Icons.download),
-              tooltip: 'Download',
-            ),
+            trailing: downloading
+                ? SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(value: downloadProgress),
+                  )
+                : IconButton.filledTonal(
+                    onPressed: item.downloadable && !busy
+                        ? () => onDownload(item)
+                        : null,
+                    icon: const Icon(Icons.download),
+                    tooltip: 'Download',
+                  ),
           );
         },
         separatorBuilder: (context, index) => const Divider(height: 1),

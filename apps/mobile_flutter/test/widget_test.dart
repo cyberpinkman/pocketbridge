@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocketbridge_mobile/main.dart';
+import 'package:pocketbridge_mobile/pocket_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -52,4 +53,48 @@ void main() {
     expect(find.text('Pick File'), findsOneWidget);
     expect(find.text('Upload Image or File'), findsNothing);
   });
+
+  testWidgets('shared page shows per-item download progress', (tester) async {
+    final item = _sharedFileItem();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SharedPage(
+            paired: true,
+            busy: true,
+            items: [item],
+            downloadProgressByItem: {item.id: 0.5},
+            onRefresh: () async {},
+            onDownload: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Shared report.pdf'), findsOneWidget);
+    expect(find.text('Downloading 50%'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byIcon(Icons.download), findsNothing);
+  });
+}
+
+PocketItem _sharedFileItem() {
+  return PocketItem(
+    id: 'itm_1782547200000_b7e2c31a',
+    kind: 'file',
+    title: 'Shared report.pdf',
+    origin: 'mac',
+    sourceDevice: 'Pinkmans-Mac',
+    tags: const ['demo'],
+    sharedToMobile: true,
+    status: 'inbox',
+    createdAt: DateTime.parse('2026-06-27T12:00:00.000Z'),
+    updatedAt: DateTime.parse('2026-06-27T12:00:00.000Z'),
+    mimeType: 'application/pdf',
+    sizeBytes: 3,
+    originalFilename: 'report.pdf',
+    storageRelPath: 'inbox/2026-06-27/itm_1782547200000_b7e2c31a/original',
+    downloadUrl: '/api/items/itm_1782547200000_b7e2c31a/download',
+  );
 }
