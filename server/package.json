@@ -10,7 +10,8 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "demo:smoke": "tsx scripts/demo-smoke.ts",
     "demo:ui-smoke": "playwright install chromium && tsx scripts/ui-smoke.ts",
-    "demo:record-fallback": "playwright install chromium && tsx scripts/record-fallback.ts"
+    "demo:record-fallback": "playwright install chromium && tsx scripts/record-fallback.ts",
+    "demo:lan-check": "tsx scripts/lan-check.ts"
   },
   "dependencies": {
     "chokidar": "^4.0.3",

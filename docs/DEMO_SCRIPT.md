@@ -37,6 +37,15 @@ If the phone cannot open the printed URL, restart with:
 PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run dev
 ```
 
+Before starting the live server, run a LAN preflight with the same phone-reachable IP:
+
+```bash
+PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run demo:lan-check
+```
+
+This confirms the QR payload, WebSocket URL, Mac UI URL, mobile fallback URL, and pair-code auth path use the advertised host. It does not replace opening the URL from the real phone on the real network.
+Set `PB_LAN_CHECK_PORT=3000` only if you specifically want the preflight to use the live-demo port and that port is free.
+
 Paths under `data/` below are relative to the repository root when using this start command.
 
 ## Demo Flow
@@ -88,6 +97,7 @@ cd server
 npm run demo:smoke
 npm run demo:ui-smoke
 npm run demo:record-fallback
+npm run demo:lan-check
 ```
 
 It uses a temporary data directory and verifies pairing JSON, pairing QR SVG, upload, inbox listing, knowledge export, Snapzy import, share-back download, search/archive/delete, WebSocket events, BLE API state, BLE WebSocket state events, server restart persistence, and API-level phone upload after restart.

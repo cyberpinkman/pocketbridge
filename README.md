@@ -45,6 +45,14 @@ If the phone cannot open the printed URL, restart with the Mac IP that the phone
 PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run dev
 ```
 
+Before a live run, verify the pairing URLs that will be embedded in the QR payload:
+
+```bash
+PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run demo:lan-check
+```
+
+This preflight starts a temporary local server, checks pairing JSON/QR, Mac UI, mobile fallback, WebSocket, and a text upload while advertising the phone-reachable host.
+
 ## Mobile App
 
 The Android-first Flutter MVP lives in:
@@ -115,6 +123,7 @@ Runtime environment variables:
 
 - `PORT`: HTTP port, default `3000`
 - `PB_PUBLIC_HOST`: Mac IP/hostname embedded in QR payload for phone access
+- `PB_LAN_CHECK_PORT`: optional temporary port for `npm run demo:lan-check`; default `0` lets the OS pick a free port
 - `PB_SERVER_BASE_URL`: full override for the QR/API base URL
 - `PB_WS_URL`: full override for the WebSocket URL
 - `PB_DATA_DIR`: runtime data directory, default `data/` at the repository root
@@ -167,6 +176,7 @@ npm install
 npm run build
 npm test
 npm run demo:smoke
+npm run demo:lan-check
 ```
 
 Core Flutter checks:
