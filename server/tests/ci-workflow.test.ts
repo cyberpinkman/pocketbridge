@@ -14,7 +14,7 @@ test("CI uploads the Flutter Android debug APK for teammate handoff", async () =
   const readme = await fs.readFile(readmePath, "utf8");
 
   assert.match(workflow, /flutter build apk --debug --no-pub/);
-  assert.match(workflow, /uses: actions\/upload-artifact@v4/);
+  assert.match(workflow, /uses: actions\/upload-artifact@v6/);
   assert.match(workflow, /name: pocketbridge-mobile-debug-apk/);
   assert.match(workflow, /path: apps\/mobile_flutter\/build\/app\/outputs\/flutter-apk\/app-debug\.apk/);
   assert.match(workflow, /if-no-files-found: error/);
