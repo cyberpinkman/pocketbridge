@@ -8,6 +8,15 @@
 
 **Tech Stack:** Node.js, Express, WebSocket, multipart upload, filesystem storage, Flutter, QR code scanning, local Markdown output.
 
+## Implementation Status
+
+Status as of 2026-06-27 on branch `codex/mobile-flutter-scaffold`:
+
+- Automated path verified with `npm run build`, `npm test`, `npm run demo:smoke`, `dart analyze`, `flutter test`, and `flutter build apk --debug`.
+- Local dev server verified with `npm run dev`, `curl http://127.0.0.1:3000/health`, and a Ding-compatible `POST /api/ble/status` curl call.
+- Android real-device verification, fallback recording, and live LAN/hotspot rehearsal remain manual follow-ups.
+- Checkboxes below track implemented and locally verified work. Unchecked items require physical-device or live-demo evidence.
+
 ---
 
 ## File Structure
@@ -59,13 +68,13 @@ data/
 - Create: `server/src/config.ts`
 - Create: `server/src/index.ts`
 
-- [ ] Create `server/package.json` with scripts `dev`, `build`, `test`, and dependencies `express`, `cors`, `multer`, `ws`, `chokidar`, `qrcode`, `nanoid`.
-- [ ] Create TypeScript config targeting modern Node.
-- [ ] Implement `config.ts` with defaults matching `docs/SHARED_CONTRACT.md`, including generated pair code when `PB_PAIR_CODE` is unset.
-- [ ] Implement `/health`.
-- [ ] Run `npm install` inside `server/`.
-- [ ] Run `npm run dev`.
-- [ ] Verify `curl http://localhost:3000/health` returns `{"ok":true,"service":"pocketbridge","version":1}`.
+- [x] Create `server/package.json` with scripts `dev`, `build`, `test`, and dependencies `express`, `cors`, `multer`, `ws`, `chokidar`, `qrcode`, `nanoid`.
+- [x] Create TypeScript config targeting modern Node.
+- [x] Implement `config.ts` with defaults matching `docs/SHARED_CONTRACT.md`, including generated pair code when `PB_PAIR_CODE` is unset.
+- [x] Implement `/health`.
+- [x] Run `npm install` inside `server/`.
+- [x] Run `npm run dev`.
+- [x] Verify `curl http://localhost:3000/health` returns `{"ok":true,"service":"pocketbridge","version":1}`.
 
 ## Task 2: Item Storage
 
@@ -75,13 +84,13 @@ data/
 - Create: `server/src/storage/file-store.ts`
 - Create: `server/tests/item-store.test.ts`
 
-- [ ] Define `PocketItem` exactly as in `docs/SHARED_CONTRACT.md`.
-- [ ] Implement JSON metadata persistence at `data/metadata.json`.
-- [ ] Implement item ID format `itm_<unixMs>_<8-char-lowercase-random>`.
-- [ ] Implement `createTextItem`, `createFileItem`, `listItems`, `getItem`, and `updateItem`.
-- [ ] Test that text items persist and reload from disk.
-- [ ] Test that file items get date-based storage paths.
-- [ ] Run `npm test`.
+- [x] Define `PocketItem` exactly as in `docs/SHARED_CONTRACT.md`.
+- [x] Implement JSON metadata persistence at `data/metadata.json`.
+- [x] Implement item ID format `itm_<unixMs>_<8-char-lowercase-random>`.
+- [x] Implement `createTextItem`, `createFileItem`, `listItems`, `getItem`, and `updateItem`.
+- [x] Test that text items persist and reload from disk.
+- [x] Test that file items get date-based storage paths.
+- [x] Run `npm test`.
 
 ## Task 3: REST API
 
@@ -91,15 +100,15 @@ data/
 - Create: `server/src/http/items.ts`
 - Modify: `server/src/index.ts`
 
-- [ ] Implement `X-PocketBridge-Pair-Code` middleware for `/api/*`.
-- [ ] Implement `GET /api/pairing`.
-- [ ] Implement `POST /api/items/text`.
-- [ ] Implement `POST /api/items/upload`.
-- [ ] Implement `GET /api/items`.
-- [ ] Implement `GET /api/items/:id`.
-- [ ] Implement `GET /api/items/:id/download`.
-- [ ] Implement `POST /api/items/:id/share-to-mobile`.
-- [ ] Verify every response shape against `docs/SHARED_CONTRACT.md`.
+- [x] Implement `X-PocketBridge-Pair-Code` middleware for `/api/*`.
+- [x] Implement `GET /api/pairing`.
+- [x] Implement `POST /api/items/text`.
+- [x] Implement `POST /api/items/upload`.
+- [x] Implement `GET /api/items`.
+- [x] Implement `GET /api/items/:id`.
+- [x] Implement `GET /api/items/:id/download`.
+- [x] Implement `POST /api/items/:id/share-to-mobile`.
+- [x] Verify every response shape against `docs/SHARED_CONTRACT.md`.
 
 ## Task 4: WebSocket Hub
 
@@ -108,12 +117,12 @@ data/
 - Modify: `server/src/index.ts`
 - Modify: `server/src/http/items.ts`
 
-- [ ] Accept connections at `/ws?pairCode=<code>&client=<mobile|mac>`.
-- [ ] Reject invalid pair codes.
-- [ ] Broadcast `pairing.connected` after connection.
-- [ ] Broadcast `item.created` after text/file upload.
-- [ ] Broadcast `item.shared` after share-to-mobile.
-- [ ] Make Flutter and Mac UI refresh item lists on item events.
+- [x] Accept connections at `/ws?pairCode=<code>&client=<mobile|mac>`.
+- [x] Reject invalid pair codes.
+- [x] Broadcast `pairing.connected` after connection.
+- [x] Broadcast `item.created` after text/file upload.
+- [x] Broadcast `item.shared` after share-to-mobile.
+- [x] Make Flutter and Mac UI refresh item lists on item events.
 
 ## Task 5: Knowledge Markdown Export
 
@@ -123,12 +132,12 @@ data/
 - Create: `server/tests/knowledge-writer.test.ts`
 - Modify: `server/src/index.ts`
 
-- [ ] Implement Markdown writer under `data/obsidian/PocketBridge/`.
-- [ ] Include YAML frontmatter fields `id`, `title`, `origin`, `sourceDevice`, `createdAt`, and `tags`.
-- [ ] Implement `POST /api/knowledge/:id`.
-- [ ] Update item status to `saved_to_knowledge`.
-- [ ] Broadcast `knowledge.saved`.
-- [ ] Test Markdown output for a text item.
+- [x] Implement Markdown writer under `data/obsidian/PocketBridge/`.
+- [x] Include YAML frontmatter fields `id`, `title`, `origin`, `sourceDevice`, `createdAt`, and `tags`.
+- [x] Implement `POST /api/knowledge/:id`.
+- [x] Update item status to `saved_to_knowledge`.
+- [x] Broadcast `knowledge.saved`.
+- [x] Test Markdown output for a text item.
 
 ## Task 6: Snapzy Watch Folder
 
@@ -136,11 +145,11 @@ data/
 - Create: `server/src/watchers/snapzy-watch.ts`
 - Modify: `server/src/index.ts`
 
-- [ ] Watch `data/watch/snapzy/` with `chokidar`.
-- [ ] When a new `.png`, `.jpg`, `.jpeg`, `.pdf`, or `.txt` appears, import it as an item.
-- [ ] Use `origin: "snapzy"` and `sourceDevice: PB_DEVICE_NAME`.
-- [ ] Broadcast `item.created`.
-- [ ] Verify by copying an image into `data/watch/snapzy/`.
+- [x] Watch `data/watch/snapzy/` with `chokidar`.
+- [x] When a new `.png`, `.jpg`, `.jpeg`, `.pdf`, or `.txt` appears, import it as an item.
+- [x] Use `origin: "snapzy"` and `sourceDevice: PB_DEVICE_NAME`.
+- [x] Broadcast `item.created`.
+- [x] Verify by copying an image into `data/watch/snapzy/`.
 
 ## Task 7: BLE Status API
 
@@ -148,50 +157,50 @@ data/
 - Create: `server/src/http/ble.ts`
 - Modify: `server/src/index.ts`
 
-- [ ] Implement in-memory BLE status with default `unknown`.
-- [ ] Implement `GET /api/ble/status`.
-- [ ] Implement `POST /api/ble/status`.
-- [ ] Broadcast `ble.status` after updates.
-- [ ] Verify Ding can update status using `curl`.
+- [x] Implement in-memory BLE status with default `unknown`.
+- [x] Implement `GET /api/ble/status`.
+- [x] Implement `POST /api/ble/status`.
+- [x] Broadcast `ble.status` after updates.
+- [x] Verify Ding can update status using `curl`.
 
 ## Task 8: Mac Web UI
 
 **Files:**
 - Create under: `apps/mac_web/`
 
-- [ ] Display the QR payload from `GET /api/pairing`.
-- [ ] Connect to WebSocket as `client=mac`.
-- [ ] Display PocketInbox items from `GET /api/items`.
-- [ ] Add upload controls for Mac-to-phone sharing through `POST /api/items/upload` with `origin=mac` and `sharedToMobile=true`.
-- [ ] Add a button that calls `POST /api/items/:id/share-to-mobile`.
-- [ ] Add a button that calls `POST /api/knowledge/:id`.
-- [ ] Display BLE status from `GET /api/ble/status` and WebSocket `ble.status`.
+- [x] Display the QR payload from `GET /api/pairing`.
+- [x] Connect to WebSocket as `client=mac`.
+- [x] Display PocketInbox items from `GET /api/items`.
+- [x] Add upload controls for Mac-to-phone sharing through `POST /api/items/upload` with `origin=mac` and `sharedToMobile=true`.
+- [x] Add a button that calls `POST /api/items/:id/share-to-mobile`.
+- [x] Add a button that calls `POST /api/knowledge/:id`.
+- [x] Display BLE status from `GET /api/ble/status` and WebSocket `ble.status`.
 
 ## Task 9: Flutter Mobile MVP
 
 **Files:**
 - Create under: `apps/mobile_flutter/`
 
-- [ ] Scan the QR JSON payload.
-- [ ] Persist `serverBaseUrl`, `wsUrl`, and `pairCode`.
-- [ ] Upload text through `POST /api/items/text`.
-- [ ] Upload image/file through `POST /api/items/upload`.
-- [ ] Connect to WebSocket as `client=mobile`.
-- [ ] List shared Mac items through `GET /api/items?sharedToMobile=true`.
-- [ ] Download selected shared file through `GET /api/items/:id/download`.
+- [x] Scan the QR JSON payload.
+- [x] Persist `serverBaseUrl`, `wsUrl`, and `pairCode`.
+- [x] Upload text through `POST /api/items/text`.
+- [x] Upload image/file through `POST /api/items/upload`.
+- [x] Connect to WebSocket as `client=mobile`.
+- [x] List shared Mac items through `GET /api/items?sharedToMobile=true`.
+- [x] Download selected shared file through `GET /api/items/:id/download`.
 
 ## Task 10: Demo Verification
 
 **Files:**
 - Create: `docs/DEMO_SCRIPT.md`
 
-- [ ] Write exact demo script with commands and click path.
+- [x] Write exact demo script with commands and click path.
 - [ ] Record one fallback video after the first full successful run.
 - [ ] Verify Mac hotspot/LAN IP flow.
 - [ ] Verify phone upload works after restarting the server.
 - [ ] Verify a Snapzy-exported screenshot appears in PocketInbox.
-- [ ] Verify one item is saved to Markdown.
-- [ ] Verify BLE status changes from `trusted` to `away`.
+- [x] Verify one item is saved to Markdown.
+- [x] Verify BLE status changes from `trusted` to `away`.
 
 ## Self-Review
 

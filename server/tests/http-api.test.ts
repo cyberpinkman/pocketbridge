@@ -81,6 +81,20 @@ async function nextEvent(socket: WebSocket): Promise<Record<string, unknown>> {
   });
 }
 
+async function closeEvent(socket: WebSocket): Promise<{ code: number; reason: string }> {
+  return await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Timed out waiting for websocket close")), 2_000);
+    socket.once("close", (code, reason) => {
+      clearTimeout(timer);
+      resolve({ code, reason: reason.toString() });
+    });
+    socket.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
+
 test("HTTP API smoke covers pairing, upload, list, share, download, knowledge, archive, delete, and BLE", async () => {
   const { runtime, config } = await startRuntime();
   try {
@@ -278,6 +292,19 @@ test("HTTP API rejects invalid boolean and limit parameters", async () => {
       "archived must be true or false"
     );
   } finally {
+    await runtime.close();
+  }
+});
+
+test("websocket rejects invalid pair codes", async () => {
+  const { runtime, config } = await startRuntime();
+  const socket = new WebSocket(`${config.wsUrl}?pairCode=000000&client=mobile`);
+  try {
+    const closed = await closeEvent(socket);
+    assert.equal(closed.code, 1008);
+    assert.equal(closed.reason, "Invalid pair code");
+  } finally {
+    socket.close();
     await runtime.close();
   }
 });
