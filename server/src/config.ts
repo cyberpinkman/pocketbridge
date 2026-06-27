@@ -45,6 +45,11 @@ function numberEnv(name: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function positiveNumberEnv(name: string, fallback: number): number {
+  const parsed = numberEnv(name, fallback);
+  return parsed > 0 ? parsed : fallback;
+}
+
 function generatePairCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
@@ -68,7 +73,7 @@ export function loadConfig(): Config {
     serverBaseUrl,
     wsUrl: process.env.PB_WS_URL ?? serverBaseUrl.replace(/^http/, "ws") + "/ws",
     lanAddresses,
-    maxUploadBytes: numberEnv("PB_MAX_UPLOAD_MB", 100) * 1024 * 1024,
+    maxUploadBytes: positiveNumberEnv("PB_MAX_UPLOAD_MB", 100) * 1024 * 1024,
     pairingExpiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
   };
 }

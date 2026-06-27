@@ -30,6 +30,8 @@ PB_SNAPZY_WATCH_DIR=./data/watch/snapzy
 PB_MAX_UPLOAD_MB=100
 ```
 
+Invalid or non-positive `PB_MAX_UPLOAD_MB` values fall back to `100`.
+
 Runtime directories:
 
 ```text

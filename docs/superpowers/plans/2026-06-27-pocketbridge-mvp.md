@@ -15,6 +15,7 @@ Status as of 2026-06-27 on branch `codex/mobile-flutter-scaffold`:
 - Automated path verified with `npm run build`, `npm test`, `npm run demo:smoke`, `dart analyze`, `flutter test`, and `flutter build apk --debug`.
 - Local dev server verified with `npm run dev`, `curl http://127.0.0.1:3000/health`, and a Ding-compatible `POST /api/ble/status` curl call.
 - Pairing JSON and QR SVG endpoints are covered by HTTP tests and `npm run demo:smoke`.
+- Runtime configuration for pairing URLs, generated pair codes, custom Obsidian/Snapzy directories, runtime directory creation, and upload-size fallback is covered by `npm test`.
 - Server restart persistence and API-level phone upload are covered by `npm run demo:smoke`.
 - Concurrent file-item metadata updates are serialized and covered by `npm test`.
 - BLE `trusted -> away` API updates and WebSocket events are covered by HTTP tests and `npm run demo:smoke`.

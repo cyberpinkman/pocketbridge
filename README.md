@@ -131,7 +131,7 @@ Runtime environment variables:
 - `PB_SNAPZY_WATCH_DIR`: Snapzy import watch directory, default `data/watch/snapzy/`
 - `PB_PAIR_CODE`: fixed pair code override; otherwise generated on server start
 - `PB_DEVICE_NAME`: displayed Mac/source device name
-- `PB_MAX_UPLOAD_MB`: upload size limit in MB, default `100`
+- `PB_MAX_UPLOAD_MB`: upload size limit in MB, default `100`; invalid or non-positive values fall back to `100`
 
 ## Runtime Data
 
