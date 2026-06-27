@@ -87,12 +87,19 @@ Run the automated local demo smoke first:
 cd server
 npm run demo:smoke
 npm run demo:ui-smoke
+npm run demo:record-fallback
 ```
 
 It uses a temporary data directory and verifies pairing JSON, pairing QR SVG, upload, inbox listing, knowledge export, Snapzy import, share-back download, search/archive/delete, WebSocket events, BLE API state, BLE WebSocket state events, server restart persistence, and API-level phone upload after restart.
 
 The UI smoke opens the Mac and mobile fallback pages in headless Chromium. It verifies mobile fallback text upload into Mac PocketInbox, a Snapzy watch screenshot in PocketInbox, shared-file listing and download from the mobile fallback, and BLE state reflected in the Mac UI.
 The first UI smoke run may download Chromium through Playwright.
+
+The fallback recording command opens a side-by-side Mac UI and mobile fallback run, executes the fallback upload, Snapzy import, share-back download, and BLE state change, then writes:
+
+```text
+docs/demo-recordings/fallback-demo.webm
+```
 
 Create a phone text item:
 

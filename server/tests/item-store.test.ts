@@ -227,3 +227,37 @@ test("archive can be restored and delete removes file item data", async () => {
   assert.equal(await store.getItem(file.id), undefined);
   await assert.rejects(() => fs.access(itemDir));
 });
+
+test("concurrent file item updates preserve sidecar metadata", async () => {
+  const config = await testConfig();
+  const store = new ItemStore(config);
+  await store.init();
+
+  const file = await store.createUploadedFileItem({
+    originalFilename: "shared.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("share me"),
+    origin: "mac",
+    sourceDevice: "Mac"
+  });
+  assert.ok(file.storageRelPath);
+
+  await Promise.all([
+    store.updateItem(file.id, { sharedToMobile: true }),
+    store.updateItem(file.id, { tags: ["shared", "demo"] }),
+    store.updateItem(file.id, { title: "Concurrent share" })
+  ]);
+
+  const updated = await store.getItem(file.id);
+  assert.equal(updated?.sharedToMobile, true);
+  assert.deepEqual(updated?.tags, ["shared", "demo"]);
+  assert.equal(updated?.title, "Concurrent share");
+
+  const metadataPath = path.join(config.dataDir, path.dirname(file.storageRelPath), "metadata.json");
+  const metadata = JSON.parse(await fs.readFile(metadataPath, "utf8")) as {
+    item: { sharedToMobile: boolean; tags: string[]; title: string };
+  };
+  assert.equal(metadata.item.sharedToMobile, true);
+  assert.deepEqual(metadata.item.tags, ["shared", "demo"]);
+  assert.equal(metadata.item.title, "Concurrent share");
+});
