@@ -91,3 +91,11 @@ jobs:
       - name: Build Android debug APK
         timeout-minutes: 20
         run: flutter build apk --debug --no-pub
+
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocketbridge-mobile-debug-apk
+          path: apps/mobile_flutter/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

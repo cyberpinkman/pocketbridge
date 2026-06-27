@@ -35,6 +35,7 @@ Evidence to save:
 
 - Command output or CI run URL.
 - Commit SHA under test.
+- `pocketbridge-mobile-debug-apk` artifact URL or downloaded `app-debug.apk` filename.
 - Any non-blocking warning copied into the acceptance record.
 
 ## Android Real Phone LAN And QR

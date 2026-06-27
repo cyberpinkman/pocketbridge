@@ -36,6 +36,8 @@ cd apps/mobile_flutter
 $HOME/development/flutter/bin/flutter build apk --debug
 ```
 
+Or download the latest successful GitHub Actions artifact named `pocketbridge-mobile-debug-apk`; it contains `app-debug.apk`.
+
 Verify without a physical phone:
 
 ```bash

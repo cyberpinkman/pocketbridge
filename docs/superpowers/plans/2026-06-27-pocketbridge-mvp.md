@@ -36,6 +36,7 @@ Status as of 2026-06-28 on branch `codex/mobile-flutter-scaffold`:
 - `PB_PUBLIC_HOST` now accepts phone-reachable IPs, host:port values, and full `http(s)://` URLs while deriving a normalized `/ws` URL for QR pairing.
 - GitHub Actions CI is configured for the current subproject layout: server build/tests/smoke/UI smoke/LAN preflight plus Flutter analyze/test/debug APK.
 - Flutter Android CI has explicit job/step timeouts and builds the debug APK with `--no-pub` after dependency installation to prevent stale Actions runs from blocking acceptance.
+- Successful Flutter Android CI runs upload `pocketbridge-mobile-debug-apk`, containing `app-debug.apk`, so teammates can install the current branch build without first configuring a local Flutter toolchain.
 - Manual device-bound QA steps are documented in `docs/MANUAL_QA_CHECKLIST.md` for later Android phone, LAN/hotspot, Snapzy, and BLEUnlock validation.
 - Manual Snapzy/knowledge QA path expectations are covered by `npm test` and match the shared contract: Markdown under `data/obsidian/PocketBridge/` and copied attachments under `data/obsidian/PocketBridge/attachments/`.
 - Android real-device verification and live LAN/hotspot rehearsal from an actual phone remain manual follow-ups.

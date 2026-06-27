@@ -71,6 +71,12 @@ $HOME/development/flutter/bin/flutter pub get
 $HOME/development/flutter/bin/flutter run -d <android-device-id>
 ```
 
+If a teammate only needs an installable debug APK, use the latest successful GitHub Actions run for this branch and download the `pocketbridge-mobile-debug-apk` artifact. It contains:
+
+```text
+app-debug.apk
+```
+
 If no Android device is available, use the browser fallback printed by the server:
 
 ```text
@@ -197,7 +203,7 @@ $HOME/development/flutter/bin/flutter test
 $HOME/development/flutter/bin/flutter build apk --debug
 ```
 
-GitHub Actions runs the same core gates in `.github/workflows/ci.yml`: server build/tests/smoke/UI smoke/LAN preflight plus Flutter analyze/test/debug APK. If local `flutter analyze` crashes from a non-ASCII workspace path, use `dart analyze` locally or run Flutter checks from an ASCII-only path.
+GitHub Actions runs the same core gates in `.github/workflows/ci.yml`: server build/tests/smoke/UI smoke/LAN preflight plus Flutter analyze/test/debug APK. Successful branch runs upload the Android debug APK as the `pocketbridge-mobile-debug-apk` artifact. If local `flutter analyze` crashes from a non-ASCII workspace path, use `dart analyze` locally or run Flutter checks from an ASCII-only path.
 
 Android real-device testing is intentionally deferred until a physical device is available.
 
