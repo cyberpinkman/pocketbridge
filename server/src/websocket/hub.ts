@@ -4,6 +4,12 @@ import { WebSocket, WebSocketServer } from "ws";
 import type { Config } from "../config.js";
 import type { PocketEvent, PocketEventType } from "../types.js";
 
+type PocketClientRole = "mobile" | "mac";
+
+function parseClientRole(value: string | null): PocketClientRole | undefined {
+  return value === "mobile" || value === "mac" ? value : undefined;
+}
+
 export class WebSocketHub {
   private wss?: WebSocketServer;
   private randomEventSuffix = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 8);
@@ -19,9 +25,14 @@ export class WebSocketHub {
         socket.close(1008, "Invalid pair code");
         return;
       }
+      const client = parseClientRole(params.get("client"));
+      if (!client) {
+        socket.close(1008, "Invalid client");
+        return;
+      }
 
       this.send(socket, "pairing.connected", {
-        client: params.get("client") ?? "unknown",
+        client,
         deviceName: this.config.deviceName
       });
     });

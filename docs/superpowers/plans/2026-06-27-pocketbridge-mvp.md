@@ -10,11 +10,12 @@
 
 ## Implementation Status
 
-Status as of 2026-06-27 on branch `codex/mobile-flutter-scaffold`:
+Status as of 2026-06-28 on branch `codex/mobile-flutter-scaffold`:
 
 - Automated path verified with `npm run build`, `npm test`, `npm run demo:smoke`, `dart analyze`, `flutter test`, and `flutter build apk --debug`.
 - Local dev server verified with `npm run dev`, `curl http://127.0.0.1:3000/health`, and a Ding-compatible `POST /api/ble/status` curl call.
 - Pairing JSON and QR SVG endpoints are covered by HTTP tests and `npm run demo:smoke`.
+- WebSocket pairing now enforces both `pairCode` and `client=mobile|mac`, covered by HTTP tests.
 - API error contract codes for invalid auth, missing items, bad request parameters, and oversized uploads are covered by `npm test`.
 - Runtime configuration for pairing URLs, generated pair codes, custom Obsidian/Snapzy directories, runtime directory creation, and upload-size fallback is covered by `npm test`.
 - Server restart persistence and API-level phone upload are covered by `npm run demo:smoke`.

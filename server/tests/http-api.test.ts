@@ -453,6 +453,30 @@ test("websocket rejects invalid pair codes", async () => {
   }
 });
 
+test("websocket rejects missing or unknown client roles", async () => {
+  const { runtime, config } = await startRuntime();
+  try {
+    const invalidUrls = [
+      `${config.wsUrl}?pairCode=${config.pairCode}`,
+      `${config.wsUrl}?pairCode=${config.pairCode}&client=browser`
+    ];
+    for (const url of invalidUrls) {
+      const socket = new WebSocket(url);
+      try {
+        const closed = await closeEvent(socket);
+        assert.equal(closed.code, 1008);
+        assert.equal(closed.reason, "Invalid client");
+      } finally {
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+          socket.close();
+        }
+      }
+    }
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("websocket clients receive pairing, item, and BLE events", async () => {
   const { runtime, config } = await startRuntime();
   const socket = new WebSocket(`${config.wsUrl}?pairCode=${config.pairCode}&client=mobile`);
