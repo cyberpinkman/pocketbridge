@@ -164,6 +164,12 @@ docs/DEMO_SCRIPT.md
 
 Before a live run, verify the local demo chain with `cd server && npm run demo:smoke`.
 
+Manual device-bound QA is tracked in:
+
+```text
+docs/MANUAL_QA_CHECKLIST.md
+```
+
 ## Verification
 
 Run these from the repository root.
