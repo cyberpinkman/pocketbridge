@@ -50,6 +50,20 @@ class PocketBridgeApi {
         statusCode: response.statusCode,
       );
     }
+
+    Object decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw const FormatException(
+        'Health response must be a JSON object with ok=true',
+      );
+    }
+    if (decoded is! Map<String, dynamic> || decoded['ok'] != true) {
+      throw const FormatException(
+        'Health response must be a JSON object with ok=true',
+      );
+    }
   }
 
   Future<PocketItem> uploadText({
