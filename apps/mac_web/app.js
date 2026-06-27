@@ -16,7 +16,8 @@ const els = {
   fileForm: document.querySelector("#fileForm"),
   fileInput: document.querySelector("#fileInput"),
   shareImmediately: document.querySelector("#shareImmediately"),
-  bleStatus: document.querySelector("#bleStatus")
+  bleStatus: document.querySelector("#bleStatus"),
+  pairingPayload: document.querySelector("#pairingPayload")
 };
 
 function apiHeaders(json = true) {
@@ -24,6 +25,11 @@ function apiHeaders(json = true) {
     ...(json ? { "Content-Type": "application/json" } : {}),
     "X-PocketBridge-Pair-Code": state.pairing.pairCode
   };
+}
+
+async function httpError(response, fallback = "Request failed") {
+  const payload = await response.json().catch(() => ({ error: { message: response.statusText } }));
+  return new Error(payload.error?.message || response.statusText || fallback);
 }
 
 async function api(path, options = {}) {
@@ -36,8 +42,7 @@ async function api(path, options = {}) {
   });
 
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({ error: { message: response.statusText } }));
-    throw new Error(payload.error?.message ?? response.statusText);
+    throw await httpError(response);
   }
 
   return response.json();
@@ -76,23 +81,35 @@ async function runAction(label, target, action) {
 
 async function loadPairing() {
   const response = await fetch("/api/pairing");
+  if (!response.ok) {
+    throw await httpError(response, "Pairing failed");
+  }
   state.pairing = await response.json();
   els.deviceName.textContent = state.pairing.deviceName;
   els.serverUrl.textContent = state.pairing.serverBaseUrl;
   els.pairCode.textContent = `Pair code ${state.pairing.pairCode}`;
+  els.pairingPayload.textContent = JSON.stringify(state.pairing, null, 2);
 }
 
 function connectSocket() {
   const url = `${state.pairing.wsUrl}?pairCode=${encodeURIComponent(state.pairing.pairCode)}&client=mac`;
-  state.socket = new WebSocket(url);
+  const socket = new WebSocket(url);
+  state.socket = socket;
 
-  state.socket.addEventListener("open", () => setStatus("Connected"));
-  state.socket.addEventListener("close", () => {
+  socket.addEventListener("open", () => setStatus("Connected"));
+  socket.addEventListener("close", () => {
+    if (state.socket !== socket) return;
     setStatus("Disconnected");
     window.setTimeout(connectSocket, 1500);
   });
-  state.socket.addEventListener("message", (event) => {
-    const payload = JSON.parse(event.data);
+  socket.addEventListener("message", (event) => {
+    let payload;
+    try {
+      payload = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+
     if (payload.type === "ble.status") {
       renderBle(payload.data);
     }
@@ -186,7 +203,7 @@ async function downloadItem(item, target) {
     const response = await fetch(`${state.pairing.serverBaseUrl}${item.downloadUrl}`, {
       headers: apiHeaders(false)
     });
-    if (!response.ok) throw new Error("Download failed");
+    if (!response.ok) throw await httpError(response, "Download failed");
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -236,7 +253,7 @@ els.fileForm.addEventListener("submit", async (event) => {
       body: form
     });
 
-    if (!response.ok) throw new Error("Upload failed");
+    if (!response.ok) throw await httpError(response, "Upload failed");
     els.fileForm.reset();
     els.shareImmediately.checked = true;
     await loadItems();
