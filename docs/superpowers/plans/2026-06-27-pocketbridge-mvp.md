@@ -35,6 +35,7 @@ Status as of 2026-06-28 on branch `codex/mobile-flutter-scaffold`:
 - LAN pairing URL preflight is covered by `npm run demo:lan-check`.
 - `PB_PUBLIC_HOST` now accepts phone-reachable IPs, host:port values, and full `http(s)://` URLs while deriving a normalized `/ws` URL for QR pairing.
 - GitHub Actions CI is configured for the current subproject layout: server build/tests/smoke/UI smoke/LAN preflight plus Flutter analyze/test/debug APK.
+- Flutter Android CI has explicit job/step timeouts and builds the debug APK with `--no-pub` after dependency installation to prevent stale Actions runs from blocking acceptance.
 - Manual device-bound QA steps are documented in `docs/MANUAL_QA_CHECKLIST.md` for later Android phone, LAN/hotspot, Snapzy, and BLEUnlock validation.
 - Android real-device verification and live LAN/hotspot rehearsal from an actual phone remain manual follow-ups.
 - Checkboxes below track implemented and locally verified work. Unchecked items require physical-device or live-demo evidence.

@@ -54,6 +54,7 @@ jobs:
   mobile_flutter:
     name: Flutter Android checks
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/mobile_flutter
@@ -88,4 +89,5 @@ jobs:
         run: flutter test
 
       - name: Build Android debug APK
-        run: flutter build apk --debug
+        timeout-minutes: 20
+        run: flutter build apk --debug --no-pub
