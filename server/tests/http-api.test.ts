@@ -316,7 +316,7 @@ test("websocket rejects invalid pair codes", async () => {
   }
 });
 
-test("websocket clients receive pairing and item events", async () => {
+test("websocket clients receive pairing, item, and BLE events", async () => {
   const { runtime, config } = await startRuntime();
   const socket = new WebSocket(`${config.wsUrl}?pairCode=${config.pairCode}&client=mobile`);
   try {
@@ -342,6 +342,22 @@ test("websocket clients receive pairing and item events", async () => {
     assert.equal(event.type, "item.created");
     assert.equal(typeof event.eventId, "string");
     assert.equal(event.version, 1);
+
+    const bleEvent = nextEvent(socket);
+    await jsonResponse(
+      await fetch(`${config.serverBaseUrl}/api/ble/status`, {
+        method: "POST",
+        headers: authHeaders(config),
+        body: JSON.stringify({ status: "away", deviceName: "Demo Phone", rssi: -80 })
+      })
+    );
+
+    const eventPayload = await bleEvent;
+    assert.equal(eventPayload.type, "ble.status");
+    const data = eventPayload.data as Record<string, unknown>;
+    assert.equal(data.status, "away");
+    assert.equal(data.deviceName, "Demo Phone");
+    assert.equal(data.rssi, -80);
   } finally {
     socket.close();
     await runtime.close();

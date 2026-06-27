@@ -240,19 +240,26 @@ try {
   );
   assert.equal(deleted.id, fileItem.id);
 
+  const trustedBleEvent = nextEvent(socket, "ble.status");
   const trusted = await json(cfg, "/api/ble/status", {
     method: "POST",
     headers: authHeaders(cfg),
     body: JSON.stringify({ status: "trusted", deviceName: "Demo Phone", rssi: -48 })
   });
   assert.equal(trusted.status, "trusted");
+  const trustedBle = await trustedBleEvent;
+  assert.equal((trustedBle.data as JsonObject).status, "trusted");
+
+  const awayBleEvent = nextEvent(socket, "ble.status");
   const away = await json(cfg, "/api/ble/status", {
     method: "POST",
     headers: authHeaders(cfg),
     body: JSON.stringify({ status: "away", deviceName: "Demo Phone" })
   });
   assert.equal(away.status, "away");
-  log("ble status ok");
+  const awayBle = await awayBleEvent;
+  assert.equal((awayBle.data as JsonObject).status, "away");
+  log("ble websocket status ok");
 
   assert.ok(socketEvents.some((event) => event.type === "item.created"));
 

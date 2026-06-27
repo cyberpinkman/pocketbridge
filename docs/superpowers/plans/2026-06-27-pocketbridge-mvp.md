@@ -16,6 +16,7 @@ Status as of 2026-06-27 on branch `codex/mobile-flutter-scaffold`:
 - Local dev server verified with `npm run dev`, `curl http://127.0.0.1:3000/health`, and a Ding-compatible `POST /api/ble/status` curl call.
 - Pairing JSON and QR SVG endpoints are covered by HTTP tests and `npm run demo:smoke`.
 - Server restart persistence and API-level phone upload are covered by `npm run demo:smoke`.
+- BLE `trusted -> away` API updates and WebSocket events are covered by HTTP tests and `npm run demo:smoke`.
 - Android real-device verification, fallback recording, and live LAN/hotspot rehearsal remain manual follow-ups.
 - Checkboxes below track implemented and locally verified work. Unchecked items require physical-device or live-demo evidence.
 
