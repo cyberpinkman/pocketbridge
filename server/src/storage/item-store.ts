@@ -4,6 +4,7 @@ import { customAlphabet } from "nanoid";
 import type { Config } from "../config.js";
 import type { ItemFilters, PocketItem, PocketItemKind, PocketItemOrigin } from "../types.js";
 import { importExistingFile, writeUploadFile } from "./file-store.js";
+import { detectMimeType } from "./mime.js";
 
 type MetadataFile = {
   items: PocketItem[];
@@ -276,13 +277,14 @@ export class ItemStore {
   }): Promise<PocketItem> {
     const createdAt = nowIso();
     const title = input.title?.trim() || input.originalFilename || "Untitled file";
+    const mimeType = detectMimeType(input.originalFilename, input.mimeType);
     const item: PocketItem = {
       id: input.id,
-      kind: kindFromMime(input.origin, input.mimeType, input.originalFilename),
+      kind: kindFromMime(input.origin, mimeType, input.originalFilename),
       title,
       origin: input.origin,
       sourceDevice: input.sourceDevice.trim() || "unknown",
-      mimeType: input.mimeType,
+      mimeType,
       sizeBytes: input.sizeBytes,
       originalFilename: input.originalFilename,
       storageRelPath: input.storageRelPath,

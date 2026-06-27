@@ -65,6 +65,40 @@ test("uploaded files get date-based storage paths and download URLs", async () =
   assert.equal(item.downloadUrl, `/api/items/${item.id}/download`);
 });
 
+test("uploaded files infer MIME type from filename before client header", async () => {
+  const config = await testConfig();
+  const store = new ItemStore(config);
+  await store.init();
+
+  const item = await store.createUploadedFileItem({
+    originalFilename: "camera.JPG",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from("jpg"),
+    origin: "mobile",
+    sourceDevice: "Android"
+  });
+
+  assert.equal(item.mimeType, "image/jpeg");
+  assert.equal(item.kind, "image");
+});
+
+test("uploaded files preserve specific client MIME types", async () => {
+  const config = await testConfig();
+  const store = new ItemStore(config);
+  await store.init();
+
+  const item = await store.createUploadedFileItem({
+    originalFilename: "payload.bin",
+    mimeType: "application/json; charset=utf-8",
+    buffer: Buffer.from("{}"),
+    origin: "mobile",
+    sourceDevice: "Android"
+  });
+
+  assert.equal(item.mimeType, "application/json");
+  assert.equal(item.kind, "file");
+});
+
 test("uploaded file items write sidecar metadata in the item directory", async () => {
   const config = await testConfig();
   const store = new ItemStore(config);

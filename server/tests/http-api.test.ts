@@ -104,7 +104,7 @@ test("HTTP API smoke covers pairing, upload, list, share, download, knowledge, a
     assert.equal(textItem.origin, "mobile");
 
     const form = new FormData();
-    form.append("file", new Blob(["demo file"], { type: "text/plain" }), "demo.txt");
+    form.append("file", new Blob(["demo file"], { type: "application/octet-stream" }), "demo.txt");
     form.append("origin", "mobile");
     form.append("sourceDevice", "PocketBridge Android");
     form.append("tags", JSON.stringify(["demo"]));
@@ -117,6 +117,7 @@ test("HTTP API smoke covers pairing, upload, list, share, download, knowledge, a
     );
     const fileItem = itemFrom(filePayload);
     assert.equal(fileItem.kind, "file");
+    assert.equal(fileItem.mimeType, "text/plain");
     assert.equal(fileItem.originalFilename, "demo.txt");
     assert.equal(typeof fileItem.downloadUrl, "string");
 
@@ -150,6 +151,7 @@ test("HTTP API smoke covers pairing, upload, list, share, download, knowledge, a
       headers: authHeaders(config, false)
     });
     assert.equal(download.status, 200);
+    assert.match(download.headers.get("content-type") ?? "", /^text\/plain/);
     assert.equal(await download.text(), "demo file");
 
     const knowledgePayload = await jsonResponse(

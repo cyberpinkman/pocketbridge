@@ -55,6 +55,10 @@ test("snapzy watcher imports supported files and broadcasts item.created", async
   const watcher = startSnapzyWatch(config, store, hub);
   try {
     await new Promise<void>((resolve) => watcher.on("ready", resolve));
+    await fs.writeFile(path.join(config.snapzyWatchDir, "ignore.json"), "{}");
+    await sleep(900);
+    assert.equal(events.length, 0);
+
     await fs.writeFile(path.join(config.snapzyWatchDir, "snap.png"), "png");
 
     await waitFor(async () => (events.includes("item.created") ? true : undefined));
@@ -66,6 +70,7 @@ test("snapzy watcher imports supported files and broadcasts item.created", async
     assert.equal(item.kind, "screenshot");
     assert.equal(item.origin, "snapzy");
     assert.equal(item.sourceDevice, "Test Mac");
+    assert.equal(item.mimeType, "image/png");
     assert.equal(item.originalFilename, "snap.png");
     assert.deepEqual(item.tags, ["snapzy"]);
     assert.match(item.storageRelPath ?? "", /^inbox\/\d{4}-\d{2}-\d{2}\/itm_\d+_[a-z0-9]{8}\/original$/);
