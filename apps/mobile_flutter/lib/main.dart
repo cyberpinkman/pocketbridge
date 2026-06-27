@@ -261,8 +261,19 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
     await _submitUpload(_PendingUpload.text(title: title, text: text));
   }
 
+  Future<void> _uploadImage() async {
+    await _uploadPickedFile(type: FileType.image);
+  }
+
   Future<void> _uploadFile() async {
-    final picked = await FilePicker.platform.pickFiles(withReadStream: true);
+    await _uploadPickedFile(type: FileType.any);
+  }
+
+  Future<void> _uploadPickedFile({required FileType type}) async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: type,
+      withReadStream: true,
+    );
     final file = picked?.files.single;
     if (file == null) return;
     if (mounted) {
@@ -418,7 +429,7 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
 
     final paired = _pairing != null;
     final pages = [
-      _CapturePage(
+      CapturePage(
         paired: paired,
         busy: _busy,
         uploadProgress: _uploadProgress,
@@ -429,6 +440,7 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
         textController: _textController,
         onScan: _pairFromQr,
         onUploadText: _uploadText,
+        onUploadImage: _uploadImage,
         onUploadFile: _uploadFile,
         onRetryFailedUpload: _lastFailedUpload == null
             ? null
@@ -498,8 +510,9 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   }
 }
 
-class _CapturePage extends StatelessWidget {
-  const _CapturePage({
+class CapturePage extends StatelessWidget {
+  const CapturePage({
+    super.key,
     required this.paired,
     required this.busy,
     required this.uploadProgress,
@@ -510,6 +523,7 @@ class _CapturePage extends StatelessWidget {
     required this.textController,
     required this.onScan,
     required this.onUploadText,
+    required this.onUploadImage,
     required this.onUploadFile,
     required this.onRetryFailedUpload,
   });
@@ -524,6 +538,7 @@ class _CapturePage extends StatelessWidget {
   final TextEditingController textController;
   final VoidCallback onScan;
   final VoidCallback onUploadText;
+  final VoidCallback onUploadImage;
   final VoidCallback onUploadFile;
   final VoidCallback? onRetryFailedUpload;
 
@@ -561,10 +576,24 @@ class _CapturePage extends StatelessWidget {
           label: const Text('Upload Text'),
         ),
         const SizedBox(height: 24),
-        OutlinedButton.icon(
-          onPressed: busy ? null : onUploadFile,
-          icon: const Icon(Icons.attach_file),
-          label: const Text('Upload Image or File'),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : onUploadImage,
+                icon: const Icon(Icons.image_outlined),
+                label: const Text('Pick Image'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : onUploadFile,
+                icon: const Icon(Icons.attach_file),
+                label: const Text('Pick File'),
+              ),
+            ),
+          ],
         ),
         if (activeFilePreview != null) ...[
           const SizedBox(height: 12),
