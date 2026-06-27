@@ -30,3 +30,6 @@ jobs:
 
       - name: Check local demo environment
         run: npm run env:check
+
+      - name: Run LAN pairing preflight
+        run: npm run demo:lan-check
