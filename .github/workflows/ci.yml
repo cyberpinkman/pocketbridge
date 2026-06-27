@@ -98,4 +98,5 @@ jobs:
           name: pocketbridge-mobile-debug-apk
           path: apps/mobile_flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+          compression-level: 0
           retention-days: 7
