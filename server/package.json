@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/index.js",
     "test": "node --import tsx --test tests/*.test.ts",
-    "demo:smoke": "tsx scripts/demo-smoke.ts"
+    "demo:smoke": "tsx scripts/demo-smoke.ts",
+    "demo:ui-smoke": "playwright install chromium && tsx scripts/mac-ui-smoke.ts"
   },
   "dependencies": {
     "chokidar": "^4.0.3",
@@ -26,6 +27,7 @@
     "@types/node": "^24.0.7",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",
+    "playwright": "^1.61.1",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }

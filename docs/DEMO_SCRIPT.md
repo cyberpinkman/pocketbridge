@@ -86,9 +86,13 @@ Run the automated local demo smoke first:
 ```bash
 cd server
 npm run demo:smoke
+npm run demo:ui-smoke
 ```
 
 It uses a temporary data directory and verifies pairing JSON, pairing QR SVG, upload, inbox listing, knowledge export, Snapzy import, share-back download, search/archive/delete, WebSocket events, BLE API state, BLE WebSocket state events, server restart persistence, and API-level phone upload after restart.
+
+The UI smoke opens the Mac page in headless Chromium and verifies that a Snapzy watch screenshot appears in PocketInbox and that BLE state is reflected in the Mac UI.
+The first UI smoke run may download Chromium through Playwright.
 
 Create a phone text item:
 

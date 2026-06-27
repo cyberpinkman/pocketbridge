@@ -17,6 +17,7 @@ Status as of 2026-06-27 on branch `codex/mobile-flutter-scaffold`:
 - Pairing JSON and QR SVG endpoints are covered by HTTP tests and `npm run demo:smoke`.
 - Server restart persistence and API-level phone upload are covered by `npm run demo:smoke`.
 - BLE `trusted -> away` API updates and WebSocket events are covered by HTTP tests and `npm run demo:smoke`.
+- Mac PocketInbox UI rendering for Snapzy imports and BLE state is covered by `npm run demo:ui-smoke`.
 - Android real-device verification, fallback recording, and live LAN/hotspot rehearsal remain manual follow-ups.
 - Checkboxes below track implemented and locally verified work. Unchecked items require physical-device or live-demo evidence.
 
@@ -202,7 +203,7 @@ data/
 - [ ] Verify Mac hotspot/LAN IP flow.
 - [x] Verify API-level phone upload works after restarting the server.
 - [ ] Verify real phone upload works after restarting the server.
-- [ ] Verify a Snapzy-exported screenshot appears in PocketInbox.
+- [x] Verify a Snapzy watch screenshot appears in PocketInbox UI.
 - [x] Verify one item is saved to Markdown.
 - [x] Verify BLE status changes from `trusted` to `away`.
 
