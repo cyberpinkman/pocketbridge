@@ -37,6 +37,21 @@ export class WebSocketHub {
     }
   }
 
+  async close(): Promise<void> {
+    const server = this.wss;
+    if (!server) return;
+    this.wss = undefined;
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
   private send(socket: WebSocket, type: PocketEventType, data: unknown): void {
     socket.send(JSON.stringify(this.event(type, data)));
   }

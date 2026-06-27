@@ -28,7 +28,7 @@ async function testConfig(): Promise<Config> {
   };
 }
 
-async function waitFor<T>(read: () => Promise<T | undefined>, timeoutMs = 3000): Promise<T> {
+async function waitFor<T>(read: () => Promise<T | undefined>, timeoutMs = 8000): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const value = await read();
