@@ -76,6 +76,8 @@ The shared API source of truth from `cyberpinkman/pocketbridge` is mirrored in `
 
 The local demo runbook is in `docs/DEMO_SCRIPT.md`.
 
+The remaining device-bound validation checklist is in `docs/MANUAL_QA_CHECKLIST.md`.
+
 In the current MVP, the Mac Web UI is served from the same bridge:
 
 ```bash
