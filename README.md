@@ -35,6 +35,18 @@ Pinkman and Ding should treat this file as the API source of truth:
 docs/SHARED_CONTRACT.md
 ```
 
+Pinkman's implementation PRD:
+
+```text
+docs/PINKMAN_PRD.md
+```
+
+Local Flutter/Android environment status:
+
+```text
+docs/ENVIRONMENT_SETUP.md
+```
+
 Key defaults:
 
 - REST API prefix: `/api`
