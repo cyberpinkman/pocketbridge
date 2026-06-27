@@ -47,3 +47,7 @@ $HOME/development/flutter/bin/flutter build apk --debug
 If `flutter analyze` crashes on this machine from the repository path, run `dart analyze` here or copy `apps/mobile_flutter/` to an ASCII-only temporary path and run `flutter analyze` there. This is a local tool/path issue, not an app contract issue.
 
 The app supports QR pairing, manual server URL pairing, text upload, image/file upload with progress and local preview, recent upload history, failed upload retry when the selected payload can be replayed, WebSocket refresh, shared file listing, and shared file download/open.
+
+Android package ID: `app.pocketbridge.mobile`.
+
+The Android manifest grants camera and internet permissions and explicitly allows cleartext HTTP so the app can connect to the local Mac server at `http://<mac-lan-ip>:3000` during the MVP demo.

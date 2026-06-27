@@ -1,4 +1,4 @@
-package com.example.pocketbridge_mobile
+package app.pocketbridge.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 
