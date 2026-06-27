@@ -106,6 +106,13 @@ test("HTTP API smoke covers pairing, upload, list, share, download, knowledge, a
     assert.equal(pairing.wsUrl, config.wsUrl);
     assert.equal(pairing.pairCode, config.pairCode);
 
+    const qr = await fetch(`${config.serverBaseUrl}/api/pairing/qr.svg`);
+    const qrBody = await qr.text();
+    assert.equal(qr.status, 200);
+    assert.match(qr.headers.get("content-type") ?? "", /^image\/svg\+xml/);
+    assert.equal(qr.headers.get("cache-control"), "no-store");
+    assert.match(qrBody, /^<svg/);
+
     const unauthorized = await fetch(`${config.serverBaseUrl}/api/items`);
     assert.equal(unauthorized.status, 401);
 

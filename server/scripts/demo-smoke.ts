@@ -128,6 +128,13 @@ try {
   assert.equal(pairing.pairCode, cfg.pairCode);
   log("pairing ok");
 
+  const qr = await fetch(`${cfg.serverBaseUrl}/api/pairing/qr.svg`);
+  const qrSvg = await qr.text();
+  assert.equal(qr.status, 200);
+  assert.match(qr.headers.get("content-type") ?? "", /^image\/svg\+xml/);
+  assert.match(qrSvg, /^<svg/);
+  log("pairing QR ok");
+
   const macHtml = await fetch(`${cfg.serverBaseUrl}/`).then((response) => response.text());
   assert.match(macHtml, /PocketInbox/);
   const mobileHtml = await fetch(`${cfg.serverBaseUrl}/mobile.html`).then((response) => response.text());

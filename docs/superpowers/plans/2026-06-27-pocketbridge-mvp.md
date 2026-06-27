@@ -14,6 +14,7 @@ Status as of 2026-06-27 on branch `codex/mobile-flutter-scaffold`:
 
 - Automated path verified with `npm run build`, `npm test`, `npm run demo:smoke`, `dart analyze`, `flutter test`, and `flutter build apk --debug`.
 - Local dev server verified with `npm run dev`, `curl http://127.0.0.1:3000/health`, and a Ding-compatible `POST /api/ble/status` curl call.
+- Pairing JSON and QR SVG endpoints are covered by HTTP tests and `npm run demo:smoke`.
 - Server restart persistence and API-level phone upload are covered by `npm run demo:smoke`.
 - Android real-device verification, fallback recording, and live LAN/hotspot rehearsal remain manual follow-ups.
 - Checkboxes below track implemented and locally verified work. Unchecked items require physical-device or live-demo evidence.
@@ -169,7 +170,7 @@ data/
 **Files:**
 - Create under: `apps/mac_web/`
 
-- [x] Display the QR payload from `GET /api/pairing`.
+- [x] Display the QR image from `GET /api/pairing/qr.svg` and payload from `GET /api/pairing`.
 - [x] Connect to WebSocket as `client=mac`.
 - [x] Display PocketInbox items from `GET /api/items`.
 - [x] Add upload controls for Mac-to-phone sharing through `POST /api/items/upload` with `origin=mac` and `sharedToMobile=true`.

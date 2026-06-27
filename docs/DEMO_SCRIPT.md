@@ -88,7 +88,7 @@ cd server
 npm run demo:smoke
 ```
 
-It uses a temporary data directory and verifies pairing, upload, inbox listing, knowledge export, Snapzy import, share-back download, search/archive/delete, WebSocket events, BLE state, server restart persistence, and API-level phone upload after restart.
+It uses a temporary data directory and verifies pairing JSON, pairing QR SVG, upload, inbox listing, knowledge export, Snapzy import, share-back download, search/archive/delete, WebSocket events, BLE state, server restart persistence, and API-level phone upload after restart.
 
 Create a phone text item:
 
