@@ -52,6 +52,15 @@ async function jsonResponse(response: Response): Promise<Record<string, unknown>
   return JSON.parse(body) as Record<string, unknown>;
 }
 
+async function badRequestResponse(response: Response, message: string): Promise<Record<string, unknown>> {
+  const body = await response.text();
+  assert.equal(response.status, 400, body);
+  const payload = JSON.parse(body) as { error?: { code?: string; message?: string } };
+  assert.equal(payload.error?.code, "BAD_REQUEST");
+  assert.equal(payload.error?.message, message);
+  return payload as Record<string, unknown>;
+}
+
 function itemFrom(payload: Record<string, unknown>): Record<string, unknown> {
   assert.equal(typeof payload.item, "object");
   assert.notEqual(payload.item, null);
@@ -206,6 +215,68 @@ test("HTTP API smoke covers pairing, upload, list, share, download, knowledge, a
     );
     assert.equal(blePayload.status, "trusted");
     assert.equal(blePayload.deviceName, "Demo Phone");
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("HTTP API rejects invalid boolean and limit parameters", async () => {
+  const { runtime, config } = await startRuntime();
+  try {
+    const textPayload = await jsonResponse(
+      await fetch(`${config.serverBaseUrl}/api/items/text`, {
+        method: "POST",
+        headers: authHeaders(config),
+        body: JSON.stringify({
+          title: "Validation target",
+          text: "Check strict parameters.",
+          origin: "mobile",
+          sourceDevice: "PocketBridge Android"
+        })
+      })
+    );
+    const textItem = itemFrom(textPayload);
+
+    await badRequestResponse(
+      await fetch(`${config.serverBaseUrl}/api/items?sharedToMobile=maybe`, {
+        headers: authHeaders(config, false)
+      }),
+      "sharedToMobile must be true or false"
+    );
+    await badRequestResponse(
+      await fetch(`${config.serverBaseUrl}/api/items?includeArchived=yes`, {
+        headers: authHeaders(config, false)
+      }),
+      "includeArchived must be true or false"
+    );
+    await badRequestResponse(
+      await fetch(`${config.serverBaseUrl}/api/items?limit=all`, {
+        headers: authHeaders(config, false)
+      }),
+      "limit must be a positive integer"
+    );
+    await badRequestResponse(
+      await fetch(`${config.serverBaseUrl}/api/items/search?q=Validation&limit=-1`, {
+        headers: authHeaders(config, false)
+      }),
+      "limit must be a positive integer"
+    );
+    await badRequestResponse(
+      await fetch(`${config.serverBaseUrl}/api/items/${textItem.id}/share-to-mobile`, {
+        method: "POST",
+        headers: authHeaders(config),
+        body: JSON.stringify({ sharedToMobile: "later" })
+      }),
+      "sharedToMobile must be true or false"
+    );
+    await badRequestResponse(
+      await fetch(`${config.serverBaseUrl}/api/items/${textItem.id}/archive`, {
+        method: "POST",
+        headers: authHeaders(config),
+        body: JSON.stringify({ archived: "yes" })
+      }),
+      "archived must be true or false"
+    );
   } finally {
     await runtime.close();
   }

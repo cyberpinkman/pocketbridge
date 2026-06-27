@@ -34,15 +34,25 @@ function parseOrigin(value: unknown): PocketItemOrigin {
   return value;
 }
 
-function parseBoolean(value: unknown): boolean | undefined {
+function parseBoolean(value: unknown, name: string): boolean | undefined {
   if (value === undefined) return undefined;
-  return value === true || value === "true";
+  if (value === true || value === "true") return true;
+  if (value === false || value === "false") return false;
+
+  badRequest(`${name} must be true or false`);
 }
 
 function parseLimit(value: unknown): number | undefined {
-  if (!value) return undefined;
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" && typeof value !== "number") {
+    badRequest("limit must be a positive integer");
+  }
+
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) return undefined;
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    badRequest("limit must be a positive integer");
+  }
+
   return Math.min(parsed, 500);
 }
 
@@ -90,7 +100,7 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
         origin,
         sourceDevice: String(req.body.sourceDevice ?? config.deviceName),
         tags: parseTags(req.body.tags),
-        sharedToMobile: parseBoolean(req.body.sharedToMobile),
+        sharedToMobile: parseBoolean(req.body.sharedToMobile, "sharedToMobile"),
         originalFilename: req.file.originalname,
         mimeType: req.file.mimetype,
         buffer: req.file.buffer
@@ -105,9 +115,8 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
     "/items",
     asyncHandler(async (req, res) => {
       const origin = req.query.origin ? parseOrigin(req.query.origin) : undefined;
-      const sharedToMobile =
-        req.query.sharedToMobile === undefined ? undefined : String(req.query.sharedToMobile) === "true";
-      const includeArchived = parseBoolean(req.query.includeArchived) ?? false;
+      const sharedToMobile = parseBoolean(req.query.sharedToMobile, "sharedToMobile");
+      const includeArchived = parseBoolean(req.query.includeArchived, "includeArchived") ?? false;
       const items = await store.listItems({
         origin,
         sharedToMobile,
@@ -125,9 +134,8 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
       if (!query) badRequest("q is required");
 
       const origin = req.query.origin ? parseOrigin(req.query.origin) : undefined;
-      const sharedToMobile =
-        req.query.sharedToMobile === undefined ? undefined : String(req.query.sharedToMobile) === "true";
-      const includeArchived = parseBoolean(req.query.includeArchived) ?? false;
+      const sharedToMobile = parseBoolean(req.query.sharedToMobile, "sharedToMobile");
+      const includeArchived = parseBoolean(req.query.includeArchived, "includeArchived") ?? false;
       const items = await store.searchItems(query, {
         origin,
         sharedToMobile,
@@ -171,7 +179,9 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
     "/items/:id/share-to-mobile",
     asyncHandler(async (req, res) => {
       const id = paramString(req.params.id, "id");
-      const item = await store.updateItem(id, { sharedToMobile: parseBoolean(req.body.sharedToMobile) ?? true });
+      const item = await store.updateItem(id, {
+        sharedToMobile: parseBoolean(req.body.sharedToMobile, "sharedToMobile") ?? true
+      });
       if (!item) notFound("Item not found");
 
       hub.broadcast("item.shared", { item });
@@ -183,7 +193,7 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
     "/items/:id/archive",
     asyncHandler(async (req, res) => {
       const id = paramString(req.params.id, "id");
-      const item = await store.archiveItem(id, parseBoolean(req.body.archived) ?? true);
+      const item = await store.archiveItem(id, parseBoolean(req.body.archived, "archived") ?? true);
       if (!item) notFound("Item not found");
 
       hub.broadcast("item.updated", { item });
