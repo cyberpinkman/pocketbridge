@@ -330,30 +330,59 @@ Response:
   "item": {
     "id": "itm_1782547200000_a9f4c21b",
     "status": "saved_to_knowledge",
-  "knowledgePath": "data/obsidian/PocketBridge/2026-06-27-idea-from-phone-itm_1782547200000_a9f4c21b.md"
+    "knowledgePath": "data/obsidian/PocketBridge/2026-06-27-idea-from-phone-itm_1782547200000_a9f4c21b.md"
   }
 }
 ```
 
-Markdown output format:
+Markdown output format for a text item:
 
 ```markdown
 ---
-id: itm_1782547200000_a9f4c21b
-title: Idea from phone
-origin: mobile
-sourceDevice: Pinkmans-iPhone
-createdAt: 2026-06-27T12:00:00.000Z
+id: "itm_1782547200000_a9f4c21b"
+title: "Idea from phone"
+kind: "text"
+origin: "mobile"
+sourceDevice: "Pinkmans-iPhone"
+createdAt: "2026-06-27T12:00:00.000Z"
+updatedAt: "2026-06-27T12:00:00.000Z"
 tags:
-  - pocketbridge
-  - demo
+  - "pocketbridge"
+  - "demo"
+  - "text"
+  - "mobile"
 ---
 
 # Idea from phone
 
 Turn screenshots into a personal knowledge stream.
 
-Source: mobile / Pinkmans-iPhone
+## Summary
+
+Pending summary.
+
+## Note
+
+Imported during live demo.
+```
+
+Markdown output for file/image/screenshot items also includes source metadata and an Obsidian attachment link:
+
+```markdown
+mimeType: "image/png"
+sizeBytes: 481223
+originalFilename: "Screenshot 2026-06-27 20.00.00.png"
+storageRelPath: "inbox/2026-06-27/itm_1782547200000_a9f4c21b/original"
+```
+
+```markdown
+File: inbox/2026-06-27/itm_1782547200000_a9f4c21b/original
+
+[[attachments/itm_1782547200000_a9f4c21b-Screenshot 2026-06-27 20.00.00.png|Screenshot 2026-06-27 20.00.00.png]]
+
+## Source File
+
+inbox/2026-06-27/itm_1782547200000_a9f4c21b/original
 ```
 
 ### `GET /api/ble/status`
