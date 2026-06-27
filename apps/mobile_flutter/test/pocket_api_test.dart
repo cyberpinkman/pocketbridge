@@ -46,6 +46,7 @@ void main() {
   test(
     'uploadFile streams multipart content when a read stream is available',
     () async {
+      final progress = <int>[];
       final api = PocketBridgeApi(
         _pairing(),
         client: MockClient.streaming((request, bodyStream) async {
@@ -79,12 +80,15 @@ void main() {
           readStream: Stream.value(utf8.encode('hello')),
         ),
         sourceDevice: 'PocketBridge Android',
+        onProgress: (sentBytes, _) => progress.add(sentBytes),
       );
 
       expect(
         item.downloadUrl,
         '/api/items/itm_1782547200000_b7e2c31a/download',
       );
+      expect(progress.first, 0);
+      expect(progress.last, 5);
     },
   );
 

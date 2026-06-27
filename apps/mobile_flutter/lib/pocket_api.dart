@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
@@ -73,6 +74,7 @@ class PocketBridgeApi {
   Future<PocketItem> uploadFile({
     required PlatformFile file,
     required String sourceDevice,
+    void Function(int sentBytes, int totalBytes)? onProgress,
   }) async {
     final request = http.MultipartRequest('POST', _uri('/api/items/upload'))
       ..headers.addAll(_authHeaders)
@@ -85,7 +87,7 @@ class PocketBridgeApi {
       request.files.add(
         http.MultipartFile(
           'file',
-          file.readStream!,
+          _trackProgress(file.readStream!, file.size, onProgress),
           file.size,
           filename: file.name,
           contentType: contentType,
@@ -102,9 +104,10 @@ class PocketBridgeApi {
       );
     } else if (file.bytes != null) {
       request.files.add(
-        http.MultipartFile.fromBytes(
+        http.MultipartFile(
           'file',
-          file.bytes!,
+          _trackProgress(Stream.value(file.bytes!), file.size, onProgress),
+          file.size,
           filename: file.name,
           contentType: contentType,
         ),
@@ -115,6 +118,7 @@ class PocketBridgeApi {
       );
     }
 
+    onProgress?.call(0, file.size);
     final streamed = await _client.send(request);
     final body = await streamed.stream.bytesToString();
     if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
@@ -124,6 +128,7 @@ class PocketBridgeApi {
       );
     }
 
+    onProgress?.call(file.size, file.size);
     return _itemFromBody(body);
   }
 
@@ -215,6 +220,25 @@ class PocketBridgeApi {
       path: '/api/pairing',
     );
   }
+}
+
+Stream<List<int>> _trackProgress(
+  Stream<List<int>> source,
+  int totalBytes,
+  void Function(int sentBytes, int totalBytes)? onProgress,
+) {
+  if (onProgress == null) return source;
+
+  var sentBytes = 0;
+  return source.transform(
+    StreamTransformer.fromHandlers(
+      handleData: (chunk, sink) {
+        sentBytes += chunk.length;
+        onProgress(sentBytes, totalBytes);
+        sink.add(chunk);
+      },
+    ),
+  );
 }
 
 PocketItem _itemFromResponse(http.Response response) {

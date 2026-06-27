@@ -30,4 +30,4 @@ Build a debug APK:
 $HOME/development/flutter/bin/flutter build apk --debug
 ```
 
-The app supports QR pairing, manual server URL pairing, text upload, image/file upload, WebSocket refresh, shared file listing, and shared file download/open.
+The app supports QR pairing, manual server URL pairing, text upload, image/file upload with progress and local preview, recent upload history, failed upload retry when the selected payload can be replayed, WebSocket refresh, shared file listing, and shared file download/open.

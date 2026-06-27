@@ -13,8 +13,10 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'pocket_api.dart';
 import 'pocket_models.dart';
+import 'upload_history.dart';
 
 const _pairingPrefsKey = 'pocketbridge.pairing';
+const _uploadHistoryPrefsKey = 'pocketbridge.uploadHistory';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,9 +61,13 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   StreamSubscription<dynamic>? _socketSubscription;
   Timer? _reconnectTimer;
   List<PocketItem> _sharedItems = const [];
+  List<UploadHistoryEntry> _recentUploads = const [];
+  _PendingUpload? _lastFailedUpload;
+  PlatformFile? _activeFilePreview;
   int _selectedIndex = 0;
   bool _loading = true;
   bool _busy = false;
+  double? _uploadProgress;
   String _status = 'Loading';
 
   String get _sourceDevice =>
@@ -86,6 +92,10 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   Future<void> _loadStoredPairing() async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = prefs.getString(_pairingPrefsKey);
+    final recentUploads = _storedUploadHistory(prefs);
+    if (mounted) {
+      setState(() => _recentUploads = recentUploads);
+    }
     if (encoded == null) {
       if (!mounted) return;
       setState(() {
@@ -237,36 +247,118 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   }
 
   Future<void> _uploadText() async {
-    final api = _requireApi();
     final text = _textController.text.trim();
     if (text.isEmpty) {
       _showSnack('Text is required');
       return;
     }
 
-    await _run(() async {
-      await api.uploadText(
-        title: _titleController.text.trim().isEmpty
-            ? 'Phone note'
-            : _titleController.text.trim(),
-        text: text,
-        sourceDevice: _sourceDevice,
-      );
-      _textController.clear();
-      _showSnack('Text uploaded');
-    });
+    final title = _titleController.text.trim().isEmpty
+        ? 'Phone note'
+        : _titleController.text.trim();
+    await _submitUpload(_PendingUpload.text(title: title, text: text));
   }
 
   Future<void> _uploadFile() async {
-    final api = _requireApi();
     final picked = await FilePicker.platform.pickFiles(withReadStream: true);
     final file = picked?.files.single;
     if (file == null) return;
+    if (mounted) {
+      setState(() => _activeFilePreview = file);
+    }
 
+    await _submitUpload(_PendingUpload.file(file));
+  }
+
+  Future<void> _submitUpload(
+    _PendingUpload upload, {
+    bool retry = false,
+  }) async {
+    final api = _requireApi();
     await _run(() async {
-      await api.uploadFile(file: file, sourceDevice: _sourceDevice);
-      _showSnack('File uploaded: ${file.name}');
+      if (mounted) {
+        setState(() {
+          _uploadProgress = upload.kind == 'file' ? 0 : null;
+        });
+      }
+
+      try {
+        if (upload.kind == 'text') {
+          await api.uploadText(
+            title: upload.title,
+            text: upload.text!,
+            sourceDevice: _sourceDevice,
+          );
+          _textController.clear();
+        } else {
+          await api.uploadFile(
+            file: upload.fileForAttempt(retry: retry),
+            sourceDevice: _sourceDevice,
+            onProgress: (sentBytes, totalBytes) {
+              if (!mounted || totalBytes <= 0) return;
+              setState(() {
+                _uploadProgress = (sentBytes / totalBytes).clamp(0, 1);
+              });
+            },
+          );
+        }
+
+        await _addUploadHistory(
+          title: upload.title,
+          kind: upload.kind,
+          success: true,
+        );
+        if (mounted) {
+          setState(() {
+            _lastFailedUpload = null;
+            if (upload.kind == 'file') _activeFilePreview = null;
+            _status = 'Uploaded ${upload.title}';
+          });
+        }
+        _showSnack('Uploaded: ${upload.title}');
+      } catch (error) {
+        final message = _message(error);
+        await _addUploadHistory(
+          title: upload.title,
+          kind: upload.kind,
+          success: false,
+          detail: message,
+        );
+        if (mounted) {
+          setState(() => _lastFailedUpload = upload.retryable ? upload : null);
+        }
+        rethrow;
+      } finally {
+        if (mounted) setState(() => _uploadProgress = null);
+      }
     });
+  }
+
+  Future<void> _retryLastFailedUpload() async {
+    final upload = _lastFailedUpload;
+    if (upload == null) return;
+    await _submitUpload(upload, retry: true);
+  }
+
+  Future<void> _addUploadHistory({
+    required String title,
+    required String kind,
+    required bool success,
+    String? detail,
+  }) async {
+    final entry = UploadHistoryEntry(
+      title: title,
+      kind: kind,
+      createdAt: DateTime.now(),
+      success: success,
+      detail: detail,
+    );
+    final next = cappedUploadHistory([entry, ..._recentUploads]);
+    if (mounted) {
+      setState(() => _recentUploads = next);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_uploadHistoryPrefsKey, encodeUploadHistory(next));
   }
 
   Future<void> _loadSharedItems({bool silent = false}) async {
@@ -350,11 +442,18 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
       _CapturePage(
         paired: paired,
         busy: _busy,
+        uploadProgress: _uploadProgress,
+        activeFilePreview: _activeFilePreview,
+        recentUploads: _recentUploads,
+        failedUploadTitle: _lastFailedUpload?.title,
         titleController: _titleController,
         textController: _textController,
         onScan: _pairFromQr,
         onUploadText: _uploadText,
         onUploadFile: _uploadFile,
+        onRetryFailedUpload: _lastFailedUpload == null
+            ? null
+            : _retryLastFailedUpload,
       ),
       _SharedPage(
         paired: paired,
@@ -424,20 +523,30 @@ class _CapturePage extends StatelessWidget {
   const _CapturePage({
     required this.paired,
     required this.busy,
+    required this.uploadProgress,
+    required this.activeFilePreview,
+    required this.recentUploads,
+    required this.failedUploadTitle,
     required this.titleController,
     required this.textController,
     required this.onScan,
     required this.onUploadText,
     required this.onUploadFile,
+    required this.onRetryFailedUpload,
   });
 
   final bool paired;
   final bool busy;
+  final double? uploadProgress;
+  final PlatformFile? activeFilePreview;
+  final List<UploadHistoryEntry> recentUploads;
+  final String? failedUploadTitle;
   final TextEditingController titleController;
   final TextEditingController textController;
   final VoidCallback onScan;
   final VoidCallback onUploadText;
   final VoidCallback onUploadFile;
+  final VoidCallback? onRetryFailedUpload;
 
   @override
   Widget build(BuildContext context) {
@@ -478,7 +587,107 @@ class _CapturePage extends StatelessWidget {
           icon: const Icon(Icons.attach_file),
           label: const Text('Upload Image or File'),
         ),
+        if (activeFilePreview != null) ...[
+          const SizedBox(height: 12),
+          _FilePreview(file: activeFilePreview!),
+        ],
+        if (uploadProgress != null) ...[
+          const SizedBox(height: 12),
+          LinearProgressIndicator(value: uploadProgress),
+          const SizedBox(height: 6),
+          Text(
+            'Uploading ${((uploadProgress ?? 0) * 100).round()}%',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+        if (failedUploadTitle != null && onRetryFailedUpload != null) ...[
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.refresh),
+              title: Text('Retry failed upload'),
+              subtitle: Text(failedUploadTitle!),
+              trailing: FilledButton(
+                onPressed: busy ? null : onRetryFailedUpload,
+                child: const Text('Retry'),
+              ),
+            ),
+          ),
+        ],
+        if (recentUploads.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text(
+            'Recent uploads',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          ...recentUploads.map((entry) => _UploadHistoryTile(entry: entry)),
+        ],
       ],
+    );
+  }
+}
+
+class _FilePreview extends StatelessWidget {
+  const _FilePreview({required this.file});
+
+  final PlatformFile file;
+
+  @override
+  Widget build(BuildContext context) {
+    final imagePath = _isImageFile(file.name) ? file.path : null;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (imagePath != null)
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Image.file(File(imagePath), fit: BoxFit.cover),
+            ),
+          ListTile(
+            leading: Icon(
+              _isImageFile(file.name)
+                  ? Icons.image_outlined
+                  : Icons.insert_drive_file_outlined,
+            ),
+            title: Text(
+              file.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(_formatBytes(file.size)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UploadHistoryTile extends StatelessWidget {
+  const _UploadHistoryTile({required this.entry});
+
+  final UploadHistoryEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: ListTile(
+        dense: true,
+        leading: Icon(
+          entry.success ? Icons.check_circle_outline : Icons.error_outline,
+          color: entry.success ? colorScheme.primary : colorScheme.error,
+        ),
+        title: Text(entry.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          '${entry.statusLabel} / ${entry.kind} / ${_formatDate(entry.createdAt)}'
+          '${entry.detail == null ? '' : '\n${entry.detail}'}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
     );
   }
 }
@@ -793,6 +1002,67 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+class _PendingUpload {
+  const _PendingUpload._({
+    required this.kind,
+    required this.title,
+    this.text,
+    this.file,
+  });
+
+  factory _PendingUpload.text({required String title, required String text}) {
+    return _PendingUpload._(kind: 'text', title: title, text: text);
+  }
+
+  factory _PendingUpload.file(PlatformFile file) {
+    return _PendingUpload._(kind: 'file', title: file.name, file: file);
+  }
+
+  final String kind;
+  final String title;
+  final String? text;
+  final PlatformFile? file;
+
+  bool get retryable {
+    if (kind == 'text') return true;
+    final selectedFile = file;
+    return selectedFile?.path != null || selectedFile?.bytes != null;
+  }
+
+  PlatformFile fileForAttempt({required bool retry}) {
+    final selectedFile = file;
+    if (selectedFile == null) {
+      throw PocketApiException('No file selected');
+    }
+
+    if (!retry) return selectedFile;
+    if (selectedFile.path != null) {
+      return PlatformFile(
+        name: selectedFile.name,
+        size: selectedFile.size,
+        path: selectedFile.path,
+      );
+    }
+    if (selectedFile.bytes != null) {
+      return PlatformFile(
+        name: selectedFile.name,
+        size: selectedFile.size,
+        bytes: selectedFile.bytes,
+      );
+    }
+
+    throw PocketApiException('Pick the file again to retry');
+  }
+}
+
+List<UploadHistoryEntry> _storedUploadHistory(SharedPreferences prefs) {
+  try {
+    return decodeUploadHistory(prefs.getString(_uploadHistoryPrefsKey));
+  } catch (_) {
+    return const [];
+  }
+}
+
 IconData _iconForKind(String kind) {
   switch (kind) {
     case 'image':
@@ -809,6 +1079,23 @@ String _formatDate(DateTime dateTime) {
   final local = dateTime.toLocal();
   String two(int value) => value.toString().padLeft(2, '0');
   return '${local.year}-${two(local.month)}-${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
+}
+
+String _formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  final kib = bytes / 1024;
+  if (kib < 1024) return '${kib.toStringAsFixed(1)} KB';
+  final mib = kib / 1024;
+  return '${mib.toStringAsFixed(1)} MB';
+}
+
+bool _isImageFile(String filename) {
+  final lower = filename.toLowerCase();
+  return lower.endsWith('.png') ||
+      lower.endsWith('.jpg') ||
+      lower.endsWith('.jpeg') ||
+      lower.endsWith('.gif') ||
+      lower.endsWith('.webp');
 }
 
 String _eventType(Object? message) {
