@@ -116,6 +116,13 @@ try {
   assert.deepEqual(mobilePageErrors, []);
   log("Mobile fallback text appeared in PocketInbox");
 
+  await macPage.getByRole("button", { name: "Save" }).click();
+  await macPage.waitForFunction(() => document.querySelector("#status")?.textContent === "Save complete");
+  await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("obsidian/PocketBridge/"));
+  assert.match(await macPage.locator("#items").innerText(), /obsidian\/PocketBridge\/.*\.md/);
+  assert.deepEqual(macPageErrors, []);
+  log("Knowledge path appeared in PocketInbox");
+
   await waitForWatcherReady(runtime.watcher);
   await fs.writeFile(path.join(cfg.snapzyWatchDir, "snapzy-ui.png"), "png");
   await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("snapzy-ui.png"));

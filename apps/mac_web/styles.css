@@ -263,6 +263,11 @@ code {
   overflow-wrap: anywhere;
 }
 
+.knowledge-path {
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .actions {
   display: flex;
   align-items: center;

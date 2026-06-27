@@ -149,7 +149,8 @@ function renderItems(items) {
       <div>
         <h3></h3>
         <p class="meta"></p>
-        <p></p>
+        <p class="item-body"></p>
+        <p class="knowledge-path meta"></p>
       </div>
       <div class="actions">
         <button data-action="share">Share</button>
@@ -162,7 +163,13 @@ function renderItems(items) {
 
     row.querySelector("h3").textContent = item.title;
     row.querySelector(".meta").textContent = itemSummary(item);
-    row.querySelector("p:not(.meta)").textContent = item.text || item.originalFilename || item.storageRelPath || "";
+    row.querySelector(".item-body").textContent = item.text || item.originalFilename || item.storageRelPath || "";
+    const knowledgePath = row.querySelector(".knowledge-path");
+    if (item.knowledgePath) {
+      knowledgePath.textContent = `Markdown ${item.knowledgePath}`;
+    } else {
+      knowledgePath.remove();
+    }
     row.querySelector('[data-action="share"]').addEventListener("click", (event) => shareItem(item.id, event.currentTarget));
     row.querySelector('[data-action="knowledge"]').addEventListener("click", (event) =>
       saveKnowledge(item.id, event.currentTarget)

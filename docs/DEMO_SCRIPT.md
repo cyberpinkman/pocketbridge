@@ -70,7 +70,7 @@ http://<mac-lan-ip>:3000/mobile.html
 3. Upload a text idea from the phone.
 4. Upload a photo or file from the phone.
 5. Show PocketInbox updating on the Mac.
-6. Click `Save` on one item and show the generated Markdown under:
+6. Click `Save` on one item and show the generated Markdown path in PocketInbox and under:
 
 ```text
 data/obsidian/PocketBridge/
@@ -105,7 +105,7 @@ It uses a temporary data directory and verifies pairing JSON, pairing QR SVG, up
 The UI smoke opens the Mac and mobile fallback pages in headless Chromium. It verifies mobile fallback text upload into Mac PocketInbox, a Snapzy watch screenshot in PocketInbox, shared-file listing and download from the mobile fallback, and BLE state reflected in the Mac UI.
 The first UI smoke run may download Chromium through Playwright.
 
-The fallback recording command opens a side-by-side Mac UI and mobile fallback run, executes the fallback upload, Snapzy import, share-back download, and BLE state change, then writes:
+The fallback recording command opens a side-by-side Mac UI and mobile fallback run, executes the fallback upload, knowledge save, Snapzy import, share-back download, and BLE state change, then writes:
 
 ```text
 docs/demo-recordings/fallback-demo.webm

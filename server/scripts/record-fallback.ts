@@ -217,6 +217,12 @@ try {
   await page.waitForTimeout(700);
   log("recording fallback upload");
 
+  await mac.getByRole("button", { name: "Save" }).click();
+  await waitForText(mac.locator("#status"), "Save complete", "Mac knowledge save");
+  await waitForText(mac.locator("#items"), /obsidian\/PocketBridge\/.*\.md/, "knowledge path in Mac UI");
+  await page.waitForTimeout(700);
+  log("recording knowledge path");
+
   await waitForWatcherReady(runtime.watcher);
   await fs.writeFile(path.join(cfg.snapzyWatchDir, "recorded-snapzy.png"), "png");
   await waitForText(mac.locator("#items"), /recorded-snapzy\.png/, "Snapzy import in Mac UI");
