@@ -119,3 +119,77 @@ test("metadata writes keep a backup and recover from a corrupt primary file", as
   const backupAfterRecovery = JSON.parse(await fs.readFile(backupPath, "utf8")) as { items: Array<{ id: string }> };
   assert.equal(backupAfterRecovery.items[0].id, first.id);
 });
+
+test("search matches text and tags while excluding archived items by default", async () => {
+  const config = await testConfig();
+  const store = new ItemStore(config);
+  await store.init();
+
+  const first = await store.createTextItem({
+    title: "Receipt idea",
+    text: "Find the hotel invoice later.",
+    origin: "mobile",
+    sourceDevice: "Phone",
+    tags: ["travel"]
+  });
+  const second = await store.createTextItem({
+    title: "Lunch note",
+    text: "Unrelated",
+    origin: "mobile",
+    sourceDevice: "Phone",
+    tags: ["food"]
+  });
+
+  assert.deepEqual(
+    (await store.searchItems("hotel travel")).map((item) => item.id),
+    [first.id]
+  );
+
+  await store.archiveItem(first.id);
+
+  assert.deepEqual(await store.searchItems("hotel travel"), []);
+  assert.deepEqual(
+    (await store.searchItems("hotel travel", { includeArchived: true })).map((item) => item.id),
+    [first.id]
+  );
+  assert.deepEqual(
+    (await store.listItems()).map((item) => item.id),
+    [second.id]
+  );
+});
+
+test("archive can be restored and delete removes file item data", async () => {
+  const config = await testConfig();
+  const store = new ItemStore(config);
+  await store.init();
+
+  const text = await store.createTextItem({
+    title: "Archive me",
+    text: "Temporary",
+    origin: "mobile",
+    sourceDevice: "Phone"
+  });
+  const archived = await store.archiveItem(text.id);
+  assert.ok(archived?.archivedAt);
+  assert.deepEqual(await store.listItems(), []);
+
+  const restored = await store.archiveItem(text.id, false);
+  assert.equal(restored?.archivedAt, undefined);
+  assert.equal((await store.listItems()).length, 1);
+
+  const file = await store.createUploadedFileItem({
+    originalFilename: "delete.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("delete me"),
+    origin: "mac",
+    sourceDevice: "Mac"
+  });
+  assert.ok(file.storageRelPath);
+  const itemDir = path.join(config.dataDir, path.dirname(file.storageRelPath));
+  assert.equal(await fs.readFile(path.join(itemDir, "original"), "utf8"), "delete me");
+
+  const deleted = await store.deleteItem(file.id);
+  assert.equal(deleted?.id, file.id);
+  assert.equal(await store.getItem(file.id), undefined);
+  await assert.rejects(() => fs.access(itemDir));
+});

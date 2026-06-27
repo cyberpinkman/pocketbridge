@@ -113,7 +113,7 @@ function connectSocket() {
     if (payload.type === "ble.status") {
       renderBle(payload.data);
     }
-    if (["item.created", "item.updated", "item.shared", "knowledge.saved"].includes(payload.type)) {
+    if (["item.created", "item.updated", "item.shared", "item.deleted", "knowledge.saved"].includes(payload.type)) {
       void loadItems();
     }
   });

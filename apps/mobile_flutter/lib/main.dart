@@ -211,7 +211,9 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
           setState(() => _status = 'Live connection ready');
         }
         if (type == 'item.created' ||
+            type == 'item.updated' ||
             type == 'item.shared' ||
+            type == 'item.deleted' ||
             type == 'knowledge.saved') {
           unawaited(_loadSharedItems(silent: true));
         }

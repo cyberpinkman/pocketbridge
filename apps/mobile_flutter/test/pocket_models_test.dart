@@ -47,11 +47,13 @@ void main() {
       'status': 'inbox',
       'createdAt': '2026-06-27T12:00:00.000Z',
       'updatedAt': '2026-06-27T12:00:00.000Z',
+      'archivedAt': '2026-06-27T12:05:00.000Z',
       'downloadUrl': '/api/items/itm_1782547200000_a9f4c21b/download',
     });
 
     expect(item.downloadable, isTrue);
     expect(item.origin, 'mac');
     expect(item.tags, ['demo']);
+    expect(item.archivedAt, DateTime.parse('2026-06-27T12:05:00.000Z'));
   });
 }

@@ -75,6 +75,7 @@ class PocketItem {
     this.originalFilename,
     this.storageRelPath,
     this.text,
+    this.archivedAt,
     this.downloadUrl,
     this.knowledgePath,
   });
@@ -94,6 +95,7 @@ class PocketItem {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? archivedAt;
   final String? downloadUrl;
   final String? knowledgePath;
 
@@ -114,6 +116,7 @@ class PocketItem {
       status: _requiredString(json, 'status'),
       createdAt: DateTime.parse(_requiredString(json, 'createdAt')),
       updatedAt: DateTime.parse(_requiredString(json, 'updatedAt')),
+      archivedAt: DateTime.tryParse(_stringOr(json['archivedAt'], '')),
       downloadUrl: json['downloadUrl'] as String?,
       knowledgePath: json['knowledgePath'] as String?,
     );

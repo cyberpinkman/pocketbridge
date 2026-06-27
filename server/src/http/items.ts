@@ -107,7 +107,33 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
       const origin = req.query.origin ? parseOrigin(req.query.origin) : undefined;
       const sharedToMobile =
         req.query.sharedToMobile === undefined ? undefined : String(req.query.sharedToMobile) === "true";
-      const items = await store.listItems({ origin, sharedToMobile, limit: parseLimit(req.query.limit) });
+      const includeArchived = parseBoolean(req.query.includeArchived) ?? false;
+      const items = await store.listItems({
+        origin,
+        sharedToMobile,
+        includeArchived,
+        limit: parseLimit(req.query.limit)
+      });
+      res.json({ items });
+    })
+  );
+
+  router.get(
+    "/items/search",
+    asyncHandler(async (req, res) => {
+      const query = String(req.query.q ?? "").trim();
+      if (!query) badRequest("q is required");
+
+      const origin = req.query.origin ? parseOrigin(req.query.origin) : undefined;
+      const sharedToMobile =
+        req.query.sharedToMobile === undefined ? undefined : String(req.query.sharedToMobile) === "true";
+      const includeArchived = parseBoolean(req.query.includeArchived) ?? false;
+      const items = await store.searchItems(query, {
+        origin,
+        sharedToMobile,
+        includeArchived,
+        limit: parseLimit(req.query.limit)
+      });
       res.json({ items });
     })
   );
@@ -149,6 +175,30 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
       if (!item) notFound("Item not found");
 
       hub.broadcast("item.shared", { item });
+      res.json({ item });
+    })
+  );
+
+  router.post(
+    "/items/:id/archive",
+    asyncHandler(async (req, res) => {
+      const id = paramString(req.params.id, "id");
+      const item = await store.archiveItem(id, parseBoolean(req.body.archived) ?? true);
+      if (!item) notFound("Item not found");
+
+      hub.broadcast("item.updated", { item });
+      res.json({ item });
+    })
+  );
+
+  router.delete(
+    "/items/:id",
+    asyncHandler(async (req, res) => {
+      const id = paramString(req.params.id, "id");
+      const item = await store.deleteItem(id);
+      if (!item) notFound("Item not found");
+
+      hub.broadcast("item.deleted", { item });
       res.json({ item });
     })
   );

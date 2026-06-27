@@ -104,6 +104,7 @@ type PocketItem = {
   status: PocketItemStatus;
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string;
   downloadUrl?: string;
   knowledgePath?: string;
 };
@@ -239,6 +240,27 @@ Query parameters:
 
 - `origin`: optional `mobile`, `mac`, or `snapzy`.
 - `sharedToMobile`: optional `true` or `false`.
+- `includeArchived`: optional `true` or `false`, default `false`.
+- `limit`: optional integer, default `100`.
+
+Response:
+
+```json
+{
+  "items": []
+}
+```
+
+### `GET /api/items/search`
+
+Searches title, text, tags, origin, kind, source device, MIME type, filename, storage path, and id.
+
+Query parameters:
+
+- `q`: required search string. Multiple terms are AND-matched.
+- `origin`: optional `mobile`, `mac`, or `snapzy`.
+- `sharedToMobile`: optional `true` or `false`.
+- `includeArchived`: optional `true` or `false`, default `false`.
 - `limit`: optional integer, default `100`.
 
 Response:
@@ -308,6 +330,43 @@ Flutter downloads Mac-to-phone files by calling:
 ```http
 GET /api/items?sharedToMobile=true
 GET /api/items/:id/download
+```
+
+### `POST /api/items/:id/archive`
+
+Archives or restores an item. Archived items are hidden from normal list and search responses unless `includeArchived=true`.
+
+Request:
+
+```json
+{
+  "archived": true
+}
+```
+
+Response:
+
+```json
+{
+  "item": {
+    "id": "itm_1782547200000_a9f4c21b",
+    "archivedAt": "2026-06-27T12:00:00.000Z"
+  }
+}
+```
+
+### `DELETE /api/items/:id`
+
+Permanently removes an item from metadata. File/image/screenshot items also remove their local inbox item directory.
+
+Response:
+
+```json
+{
+  "item": {
+    "id": "itm_1782547200000_a9f4c21b"
+  }
+}
 ```
 
 ### `POST /api/knowledge/:id`
@@ -447,6 +506,7 @@ type PocketEvent = {
     | "item.created"
     | "item.updated"
     | "item.shared"
+    | "item.deleted"
     | "knowledge.saved"
     | "ble.status";
   version: 1;
@@ -481,7 +541,7 @@ Example:
 }
 ```
 
-Flutter rule: on `item.created`, `item.updated`, `item.shared`, or `knowledge.saved`, refresh `GET /api/items`.
+Flutter rule: on `item.created`, `item.updated`, `item.shared`, `item.deleted`, or `knowledge.saved`, refresh `GET /api/items`.
 
 Mac UI rule: on every item event, update PocketInbox immediately.
 

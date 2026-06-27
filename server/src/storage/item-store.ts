@@ -72,6 +72,25 @@ function cleanTags(tags: string[] | undefined): string[] {
   return Array.from(new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean)));
 }
 
+function searchableText(item: PocketItem): string {
+  return [
+    item.id,
+    item.kind,
+    item.title,
+    item.origin,
+    item.sourceDevice,
+    item.mimeType,
+    item.originalFilename,
+    item.storageRelPath,
+    item.text,
+    item.status,
+    ...item.tags
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .join("\n")
+    .toLowerCase();
+}
+
 async function fileExists(target: string): Promise<boolean> {
   try {
     await fs.access(target);
@@ -174,8 +193,28 @@ export class ItemStore {
     await this.load();
     const limit = filters.limit ?? 100;
     return this.items
+      .filter((item) => filters.includeArchived || !item.archivedAt)
       .filter((item) => !filters.origin || item.origin === filters.origin)
       .filter((item) => filters.sharedToMobile === undefined || item.sharedToMobile === filters.sharedToMobile)
+      .slice(0, limit)
+      .map(withDownloadUrl);
+  }
+
+  async searchItems(query: string, filters: ItemFilters = {}): Promise<PocketItem[]> {
+    await this.load();
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return [];
+
+    const terms = normalized.split(/\s+/).filter(Boolean);
+    const limit = filters.limit ?? 100;
+    return this.items
+      .filter((item) => filters.includeArchived || !item.archivedAt)
+      .filter((item) => !filters.origin || item.origin === filters.origin)
+      .filter((item) => filters.sharedToMobile === undefined || item.sharedToMobile === filters.sharedToMobile)
+      .filter((item) => {
+        const haystack = searchableText(item);
+        return terms.every((term) => haystack.includes(term));
+      })
       .slice(0, limit)
       .map(withDownloadUrl);
   }
@@ -201,6 +240,26 @@ export class ItemStore {
     await this.saveItemMetadata(updated);
     await this.save();
     return withDownloadUrl(updated);
+  }
+
+  async archiveItem(id: string, archived = true): Promise<PocketItem | undefined> {
+    return await this.updateItem(id, { archivedAt: archived ? nowIso() : undefined });
+  }
+
+  async deleteItem(id: string): Promise<PocketItem | undefined> {
+    await this.load();
+    const index = this.items.findIndex((item) => item.id === id);
+    if (index === -1) return undefined;
+
+    const [deleted] = this.items.splice(index, 1);
+    await this.save();
+    if (deleted.storageRelPath) {
+      await fs.rm(path.join(this.config.dataDir, path.dirname(deleted.storageRelPath)), {
+        force: true,
+        recursive: true
+      });
+    }
+    return withDownloadUrl(deleted);
   }
 
   private async createStoredFileItem(input: {

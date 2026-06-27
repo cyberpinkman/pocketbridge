@@ -19,6 +19,7 @@ export type PocketItem = {
   status: PocketItemStatus;
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string;
   downloadUrl?: string;
   knowledgePath?: string;
 };
@@ -39,6 +40,7 @@ export type PocketEventType =
   | "item.created"
   | "item.updated"
   | "item.shared"
+  | "item.deleted"
   | "knowledge.saved"
   | "ble.status";
 
@@ -60,6 +62,7 @@ export type BleStatus = {
 export type ItemFilters = {
   origin?: PocketItemOrigin;
   sharedToMobile?: boolean;
+  includeArchived?: boolean;
   limit?: number;
 };
 
@@ -70,4 +73,3 @@ export function isPocketItemOrigin(value: unknown): value is PocketItemOrigin {
 export function isBleTrustStatus(value: unknown): value is BleTrustStatus {
   return value === "trusted" || value === "away" || value === "locked" || value === "unknown";
 }
-
