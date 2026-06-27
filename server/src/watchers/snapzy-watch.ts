@@ -1,5 +1,6 @@
 import path from "node:path";
 import chokidar from "chokidar";
+import type { FSWatcher } from "chokidar";
 import type { Config } from "../config.js";
 import type { ItemStore } from "../storage/item-store.js";
 import type { WebSocketHub } from "../websocket/hub.js";
@@ -14,7 +15,7 @@ const MIME_BY_EXT: Record<string, string> = {
   ".txt": "text/plain"
 };
 
-export function startSnapzyWatch(config: Config, store: ItemStore, hub: WebSocketHub): void {
+export function startSnapzyWatch(config: Config, store: ItemStore, hub: WebSocketHub): FSWatcher {
   const watcher = chokidar.watch(config.snapzyWatchDir, {
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 700, pollInterval: 100 }
@@ -42,5 +43,6 @@ export function startSnapzyWatch(config: Config, store: ItemStore, hub: WebSocke
       console.error(`[snapzy] failed to import ${filePath}`, error);
     }
   });
-}
 
+  return watcher;
+}
