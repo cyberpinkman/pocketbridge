@@ -14,6 +14,7 @@ Status as of 2026-06-27 on branch `codex/mobile-flutter-scaffold`:
 
 - Automated path verified with `npm run build`, `npm test`, `npm run demo:smoke`, `dart analyze`, `flutter test`, and `flutter build apk --debug`.
 - Local dev server verified with `npm run dev`, `curl http://127.0.0.1:3000/health`, and a Ding-compatible `POST /api/ble/status` curl call.
+- Server restart persistence and API-level phone upload are covered by `npm run demo:smoke`.
 - Android real-device verification, fallback recording, and live LAN/hotspot rehearsal remain manual follow-ups.
 - Checkboxes below track implemented and locally verified work. Unchecked items require physical-device or live-demo evidence.
 
@@ -197,7 +198,8 @@ data/
 - [x] Write exact demo script with commands and click path.
 - [ ] Record one fallback video after the first full successful run.
 - [ ] Verify Mac hotspot/LAN IP flow.
-- [ ] Verify phone upload works after restarting the server.
+- [x] Verify API-level phone upload works after restarting the server.
+- [ ] Verify real phone upload works after restarting the server.
 - [ ] Verify a Snapzy-exported screenshot appears in PocketInbox.
 - [x] Verify one item is saved to Markdown.
 - [x] Verify BLE status changes from `trusted` to `away`.

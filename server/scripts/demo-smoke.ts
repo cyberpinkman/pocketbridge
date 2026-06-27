@@ -6,7 +6,7 @@ import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { WebSocket } from "ws";
 import type { Config } from "../src/config.js";
-import { createPocketBridgeRuntime } from "../src/app.js";
+import { createPocketBridgeRuntime, type PocketBridgeRuntime } from "../src/app.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -100,16 +100,20 @@ function log(message: string): void {
 }
 
 const cfg = await config();
-const runtime = await createPocketBridgeRuntime(cfg);
+let runtime = await createPocketBridgeRuntime(cfg);
 const socketEvents: JsonObject[] = [];
 let socket: WebSocket | undefined;
 
+async function listen(runtimeToStart: PocketBridgeRuntime, cfgToUpdate: Config): Promise<void> {
+  await new Promise<void>((resolve) => runtimeToStart.server.listen(0, "127.0.0.1", resolve));
+  const address = runtimeToStart.server.address() as AddressInfo;
+  cfgToUpdate.port = address.port;
+  cfgToUpdate.serverBaseUrl = `http://127.0.0.1:${address.port}`;
+  cfgToUpdate.wsUrl = `ws://127.0.0.1:${address.port}/ws`;
+}
+
 try {
-  await new Promise<void>((resolve) => runtime.server.listen(0, "127.0.0.1", resolve));
-  const address = runtime.server.address() as AddressInfo;
-  cfg.port = address.port;
-  cfg.serverBaseUrl = `http://127.0.0.1:${address.port}`;
-  cfg.wsUrl = `ws://127.0.0.1:${address.port}/ws`;
+  await listen(runtime, cfg);
 
   log(`server ${cfg.serverBaseUrl}`);
   log(`data ${cfg.dataDir}`);
@@ -244,7 +248,32 @@ try {
   log("ble status ok");
 
   assert.ok(socketEvents.some((event) => event.type === "item.created"));
-  log("Pair -> Upload -> Inbox -> Knowledge -> Snapzy -> Share back -> BLE passed");
+
+  socket?.close();
+  socket = undefined;
+  await runtime.close();
+  runtime = await createPocketBridgeRuntime(cfg);
+  await listen(runtime, cfg);
+
+  const persistedItems = itemsFrom(await json(cfg, "/api/items"));
+  assert.ok(persistedItems.some((item) => item.id === textItem.id), "Restarted server must preserve metadata");
+
+  const restartForm = new FormData();
+  restartForm.append("file", new Blob(["after restart"], { type: "text/plain" }), "restart.txt");
+  restartForm.append("origin", "mobile");
+  restartForm.append("sourceDevice", "Demo Phone Restart");
+  const restartItem = itemFrom(
+    await json(cfg, "/api/items/upload", {
+      method: "POST",
+      headers: authHeaders(cfg, false),
+      body: restartForm
+    })
+  );
+  assert.equal(restartItem.originalFilename, "restart.txt");
+  assert.equal(restartItem.sourceDevice, "Demo Phone Restart");
+  log("restart persistence and upload ok");
+
+  log("Pair -> Upload -> Inbox -> Knowledge -> Snapzy -> Share back -> BLE -> Restart upload passed");
 } finally {
   socket?.close();
   await runtime.close();
