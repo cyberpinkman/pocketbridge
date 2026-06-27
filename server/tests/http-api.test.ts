@@ -28,8 +28,8 @@ async function testConfig(): Promise<Config> {
   };
 }
 
-async function startRuntime(): Promise<{ runtime: PocketBridgeRuntime; config: Config }> {
-  const config = await testConfig();
+async function startRuntime(inputConfig?: Config): Promise<{ runtime: PocketBridgeRuntime; config: Config }> {
+  const config = inputConfig ?? (await testConfig());
   const runtime = await createPocketBridgeRuntime(config, { watchSnapzy: false });
   await new Promise<void>((resolve) => runtime.server.listen(0, "127.0.0.1", resolve));
   const address = runtime.server.address() as AddressInfo;
@@ -53,10 +53,19 @@ async function jsonResponse(response: Response): Promise<Record<string, unknown>
 }
 
 async function badRequestResponse(response: Response, message: string): Promise<Record<string, unknown>> {
+  return await errorResponse(response, 400, "BAD_REQUEST", message);
+}
+
+async function errorResponse(
+  response: Response,
+  status: number,
+  code: string,
+  message: string
+): Promise<Record<string, unknown>> {
   const body = await response.text();
-  assert.equal(response.status, 400, body);
+  assert.equal(response.status, status, body);
   const payload = JSON.parse(body) as { error?: { code?: string; message?: string } };
-  assert.equal(payload.error?.code, "BAD_REQUEST");
+  assert.equal(payload.error?.code, code);
   assert.equal(payload.error?.message, message);
   return payload as Record<string, unknown>;
 }
@@ -300,6 +309,46 @@ test("HTTP API rejects invalid boolean and limit parameters", async () => {
     );
   } finally {
     await runtime.close();
+  }
+});
+
+test("HTTP API returns contract error codes for auth, missing items, and oversized uploads", async () => {
+  const config = await testConfig();
+  config.maxUploadBytes = 4;
+  const runtimeState = await startRuntime(config);
+
+  try {
+    await errorResponse(
+      await fetch(`${runtimeState.config.serverBaseUrl}/api/items`),
+      401,
+      "UNAUTHORIZED",
+      "Invalid pair code"
+    );
+    await errorResponse(
+      await fetch(`${runtimeState.config.serverBaseUrl}/api/items/itm_missing`, {
+        headers: authHeaders(runtimeState.config, false)
+      }),
+      404,
+      "NOT_FOUND",
+      "Item not found"
+    );
+
+    const form = new FormData();
+    form.append("file", new Blob(["too large"], { type: "text/plain" }), "too-large.txt");
+    form.append("origin", "mobile");
+    form.append("sourceDevice", "PocketBridge Android");
+    await errorResponse(
+      await fetch(`${runtimeState.config.serverBaseUrl}/api/items/upload`, {
+        method: "POST",
+        headers: authHeaders(runtimeState.config, false),
+        body: form
+      }),
+      413,
+      "UPLOAD_TOO_LARGE",
+      "Upload exceeds configured limit"
+    );
+  } finally {
+    await runtimeState.runtime.close();
   }
 });
 
