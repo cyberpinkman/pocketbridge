@@ -11,7 +11,8 @@ test("Flutter mobile source targets the upstream PocketBridge API contract", asy
   assert.match(api, /X-PocketBridge-Pair-Code/);
   assert.match(api, /\/api\/items\/text/);
   assert.match(api, /\/api\/items\/upload/);
-  assert.match(api, /\/api\/items\?sharedToMobile=true/);
+  assert.match(api, /_uri\('\/api\/items'\)/);
+  assert.match(api, /queryParameters\['sharedToMobile'\] = sharedToMobile\.toString\(\)/);
   assert.match(api, /Uri websocketUri\(\)/);
 
   assert.match(models, /class PairingInfo/);
@@ -21,14 +22,14 @@ test("Flutter mobile source targets the upstream PocketBridge API contract", asy
   assert.match(models, /sharedToMobile/);
 
   assert.match(main, /import 'pocket_api\.dart';/);
-  assert.match(main, /IOWebSocketChannel\.connect/);
+  assert.match(main, /WebSocketChannel\.connect\(api\.websocketUri\(\)\)/);
   assert.match(main, /NavigationBar/);
   assert.match(main, /NavigationDestination/);
-  assert.match(main, /label: 'Pairing'/);
+  assert.match(main, /label: 'Pair'/);
   assert.match(main, /label: 'Capture'/);
   assert.match(main, /label: 'Shared'/);
-  assert.match(main, /_formatTimestamp\(item\.createdAt\)/);
-  assert.match(main, /String _formatTimestamp\(DateTime value\)/);
+  assert.match(main, /_formatDate\(item\.createdAt\)/);
+  assert.match(main, /String _formatDate\(DateTime dateTime\)/);
   assert.match(main, /shared_preferences/);
   assert.match(main, /SharedPreferences\.getInstance\(\)/);
   assert.match(main, /pocketbridge\.pairing/);

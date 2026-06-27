@@ -30,6 +30,8 @@ PB_SNAPZY_WATCH_DIR=./data/watch/snapzy
 PB_MAX_UPLOAD_MB=100
 ```
 
+Invalid or non-positive `PB_MAX_UPLOAD_MB` values fall back to `100`.
+
 Runtime directories:
 
 ```text
@@ -42,6 +44,8 @@ data/
   metadata.json
   obsidian/
     PocketBridge/
+  tmp/
+    uploads/
   watch/
     snapzy/
 ```
@@ -104,6 +108,7 @@ type PocketItem = {
   status: PocketItemStatus;
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string;
   downloadUrl?: string;
   knowledgePath?: string;
 };
@@ -245,6 +250,27 @@ Query parameters:
 
 - `origin`: optional `mobile`, `mac`, or `snapzy`.
 - `sharedToMobile`: optional `true` or `false`.
+- `includeArchived`: optional `true` or `false`, default `false`.
+- `limit`: optional integer, default `100`.
+
+Response:
+
+```json
+{
+  "items": []
+}
+```
+
+### `GET /api/items/search`
+
+Searches title, text, tags, origin, kind, source device, MIME type, filename, storage path, and id.
+
+Query parameters:
+
+- `q`: required search string. Multiple terms are AND-matched.
+- `origin`: optional `mobile`, `mac`, or `snapzy`.
+- `sharedToMobile`: optional `true` or `false`.
+- `includeArchived`: optional `true` or `false`, default `false`.
 - `limit`: optional integer, default `100`.
 
 Response:
@@ -316,6 +342,43 @@ GET /api/items?sharedToMobile=true
 GET /api/items/:id/download
 ```
 
+### `POST /api/items/:id/archive`
+
+Archives or restores an item. Archived items are hidden from normal list and search responses unless `includeArchived=true`.
+
+Request:
+
+```json
+{
+  "archived": true
+}
+```
+
+Response:
+
+```json
+{
+  "item": {
+    "id": "itm_1782547200000_a9f4c21b",
+    "archivedAt": "2026-06-27T12:00:00.000Z"
+  }
+}
+```
+
+### `DELETE /api/items/:id`
+
+Permanently removes an item from metadata. File/image/screenshot items also remove their local inbox item directory.
+
+Response:
+
+```json
+{
+  "item": {
+    "id": "itm_1782547200000_a9f4c21b"
+  }
+}
+```
+
 ### `POST /api/knowledge/:id`
 
 Writes an item into the Markdown knowledge base.
@@ -341,25 +404,54 @@ Response:
 }
 ```
 
-Markdown output format:
+Markdown output format for a text item:
 
 ```markdown
 ---
-id: itm_1782547200000_a9f4c21b
-title: Idea from phone
-origin: mobile
-sourceDevice: Pinkmans-iPhone
-createdAt: 2026-06-27T12:00:00.000Z
+id: "itm_1782547200000_a9f4c21b"
+title: "Idea from phone"
+kind: "text"
+origin: "mobile"
+sourceDevice: "Pinkmans-iPhone"
+createdAt: "2026-06-27T12:00:00.000Z"
+updatedAt: "2026-06-27T12:00:00.000Z"
 tags:
-  - pocketbridge
-  - demo
+  - "pocketbridge"
+  - "demo"
+  - "text"
+  - "mobile"
 ---
 
 # Idea from phone
 
 Turn screenshots into a personal knowledge stream.
 
-Source: mobile / Pinkmans-iPhone
+## Summary
+
+Pending summary.
+
+## Note
+
+Imported during live demo.
+```
+
+Markdown output for file/image/screenshot items also includes source metadata and an Obsidian attachment link:
+
+```markdown
+mimeType: "image/png"
+sizeBytes: 481223
+originalFilename: "Screenshot 2026-06-27 20.00.00.png"
+storageRelPath: "inbox/2026-06-27/itm_1782547200000_a9f4c21b/original"
+```
+
+```markdown
+File: inbox/2026-06-27/itm_1782547200000_a9f4c21b/original
+
+[[attachments/itm_1782547200000_a9f4c21b-Screenshot 2026-06-27 20.00.00.png|Screenshot 2026-06-27 20.00.00.png]]
+
+## Source File
+
+inbox/2026-06-27/itm_1782547200000_a9f4c21b/original
 ```
 
 ### `GET /api/ble/status`
@@ -424,6 +516,7 @@ type PocketEvent = {
     | "item.created"
     | "item.updated"
     | "item.shared"
+    | "item.deleted"
     | "knowledge.saved"
     | "ble.status";
   version: 1;
@@ -458,7 +551,7 @@ Example:
 }
 ```
 
-Flutter rule: on `item.created`, `item.updated`, `item.shared`, or `knowledge.saved`, refresh `GET /api/items`.
+Flutter rule: on `item.created`, `item.updated`, `item.shared`, `item.deleted`, or `knowledge.saved`, refresh `GET /api/items`.
 
 Mac UI rule: on every item event, update PocketInbox immediately.
 

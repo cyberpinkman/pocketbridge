@@ -1,64 +1,62 @@
-# PocketBridge Mobile Flutter
+# PocketBridge Mobile
 
-This folder contains the MVP Flutter source for the phone side of PocketBridge.
-
-## Current Scope
-
-- Pair with a Mac bridge by scanning the upstream JSON QR payload or fetching `/api/pairing` from a bridge URL.
-- Persist the last successful pairing locally and allow forgetting it from the app bar.
-- Upload inspiration text to Mac PocketInbox through `POST /api/items/text`.
-- Pick an image or document and upload it through `POST /api/items/upload`.
-- Refresh PocketInbox items from `GET /api/items`.
-- Listen for upstream event envelopes on `/ws?pairCode=<pairCode>&client=mobile`.
-- Review Mac-to-phone items from `GET /api/items?sharedToMobile=true`.
-- Copy or download file-backed shared items through their `downloadUrl`.
-
-The first MVP uses `mobile_scanner` for QR pairing and keeps pasted QR payloads or direct bridge URL pairing as fallbacks. File and image picking uses `file_picker` so the phone can demonstrate the required document/image upload path.
-
-The mobile UI is organized with bottom navigation for the PRD screens:
-
-- `Pairing`: QR scan, manual bridge URL, device name, connection status.
-- `Capture`: text capture, file/image picking, recent PocketInbox items with type, origin, device, and created time.
-- `Shared`: Mac-to-phone shared items with type, origin, device, created time, and copy/download actions.
+Flutter Android-first MVP for the PocketBridge local server contract.
 
 ## Run
 
-Install Flutter, then run:
+Run commands from the repository root unless a step says otherwise. If your Flutter SDK is already on `PATH`, `flutter` can replace `$HOME/development/flutter/bin/flutter`.
+
+Start the Mac server first:
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+If the phone cannot reach the printed LAN URL, restart the server with:
+
+```bash
+PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run dev
+```
+
+Run on Android:
 
 ```bash
 cd apps/mobile_flutter
-flutter pub get
-flutter run
+$HOME/development/flutter/bin/flutter pub get
+$HOME/development/flutter/bin/flutter devices
+$HOME/development/flutter/bin/flutter run -d <android-device-id>
 ```
 
-## Bridge URL Notes
-
-Use the right URL for your runtime:
-
-- iOS simulator on the same Mac: `http://127.0.0.1:3000`
-- Android emulator: `http://10.0.2.2:3000`
-- Physical phone: `http://<Mac-LAN-IP>:3000`
-
-The Mac bridge is started from the repo root:
+Build a debug APK:
 
 ```bash
-npm run build
-npm run start
+cd apps/mobile_flutter
+$HOME/development/flutter/bin/flutter build apk --debug
 ```
 
-If testing a physical phone, keep Mac and phone on the same network and make sure the bridge is listening on `0.0.0.0`. Open the Mac Web UI through `http://<Mac-LAN-IP>:3000` before creating the QR code so the QR payload contains a phone-reachable bridge URL.
+Or download the latest successful GitHub Actions artifact named `pocketbridge-mobile-debug-apk`; it contains `app-debug.apk`.
 
-## Pairing
+Install the downloaded APK with Android platform tools:
 
-Click `Create QR pairing` in the Mac Web UI, tap `Scan QR` in the mobile app, scan the QR code, then tap `Pair`.
+```bash
+adb devices
+adb install -r app-debug.apk
+```
 
-If camera access is unavailable, click `Copy payload` in the Mac Web UI, paste the full JSON payload into the mobile app, then tap `Pair`. You can also enter a bridge URL and tap `Pair`; the app will fetch `/api/pairing`.
+Verify without a physical phone:
 
-## Upload Demo
+```bash
+cd apps/mobile_flutter
+$HOME/development/flutter/bin/flutter test
+$HOME/development/flutter/bin/flutter build apk --debug
+```
 
-After pairing:
+If `flutter analyze` crashes on this machine from the repository path, run `dart analyze` here or copy `apps/mobile_flutter/` to an ASCII-only temporary path and run `flutter analyze` there. This is a local tool/path issue, not an app contract issue.
 
-1. Type a note in `Capture Idea`, then tap `Upload text`.
-2. Tap `Choose`, select an image or document, then tap `Upload file`.
-3. Refresh the Mac Web UI and confirm both items appear in PocketInbox.
-4. Mark a Mac item shared to mobile, then use the mobile `Shared to Phone` panel to copy or download it.
+The app supports QR pairing, manual server URL pairing, text upload, image/file upload with progress and local preview, recent upload history, failed upload retry when the selected payload can be replayed, WebSocket refresh, shared file listing, and shared file download/open.
+
+Android package ID: `app.pocketbridge.mobile`.
+
+The Android manifest grants camera and internet permissions and explicitly allows cleartext HTTP so the app can connect to the local Mac server at `http://<mac-lan-ip>:3000` during the MVP demo.

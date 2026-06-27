@@ -176,6 +176,20 @@ code {
   margin-top: 8px;
 }
 
+.payload {
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f9fafb;
+  color: var(--muted);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin: 12px 0 0;
+  padding: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .stack {
   display: grid;
   gap: 10px;
@@ -202,6 +216,24 @@ code {
 
 .inbox {
   margin-top: 16px;
+}
+
+.inbox-head {
+  align-items: flex-start;
+}
+
+.inbox-tools {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.inbox-tools input[type="search"] {
+  min-height: 36px;
+  width: min(260px, 100%);
+  padding: 0 10px;
 }
 
 .items {
@@ -231,6 +263,11 @@ code {
   overflow-wrap: anywhere;
 }
 
+.knowledge-path {
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .actions {
   display: flex;
   align-items: center;
@@ -254,5 +291,17 @@ code {
 
   .actions {
     justify-content: flex-start;
+  }
+
+  .inbox-head {
+    align-items: stretch;
+  }
+
+  .inbox-tools {
+    justify-content: flex-start;
+  }
+
+  .inbox-tools input[type="search"] {
+    width: 100%;
   }
 }

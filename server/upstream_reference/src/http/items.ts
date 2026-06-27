@@ -1,11 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { constants } from "node:fs";
 import { Router } from "express";
 import multer from "multer";
 import type { Config } from "../config.js";
 import type { ItemStore } from "../storage/item-store.js";
 import { absoluteStoragePath } from "../storage/file-store.js";
-import { isPocketItemOrigin, type PocketItemOrigin } from "../types.js";
+import { isPocketItemOrigin, type PocketItem, type PocketItemOrigin } from "../types.js";
 import type { WebSocketHub } from "../websocket/hub.js";
 import { asyncHandler, badRequest, notFound } from "./errors.js";
 
@@ -33,15 +35,25 @@ function parseOrigin(value: unknown): PocketItemOrigin {
   return value;
 }
 
-function parseBoolean(value: unknown): boolean | undefined {
+function parseBoolean(value: unknown, name: string): boolean | undefined {
   if (value === undefined) return undefined;
-  return value === true || value === "true";
+  if (value === true || value === "true") return true;
+  if (value === false || value === "false") return false;
+
+  badRequest(`${name} must be true or false`);
 }
 
 function parseLimit(value: unknown): number | undefined {
-  if (!value) return undefined;
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" && typeof value !== "number") {
+    badRequest("limit must be a positive integer");
+  }
+
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) return undefined;
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    badRequest("limit must be a positive integer");
+  }
+
   return Math.min(parsed, 500);
 }
 
@@ -53,9 +65,33 @@ function paramString(value: string | string[] | undefined, name: string): string
   return value;
 }
 
+function uploadStagingDir(config: Config): string {
+  return path.join(config.dataDir, "tmp", "uploads");
+}
+
+function uploadStorage(config: Config): multer.StorageEngine {
+  return multer.diskStorage({
+    destination(_req, _file, callback) {
+      const stagingDir = uploadStagingDir(config);
+      fs.mkdir(stagingDir, { recursive: true }).then(
+        () => callback(null, stagingDir),
+        (error) => callback(error as Error, stagingDir)
+      );
+    },
+    filename(_req, _file, callback) {
+      callback(null, `${Date.now()}-${randomUUID()}`);
+    }
+  });
+}
+
+async function cleanupStagedUpload(file: Express.Multer.File): Promise<void> {
+  if (!file.path) return;
+  await fs.rm(file.path, { force: true });
+}
+
 export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub): Router {
   const router = Router();
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.maxUploadBytes } });
+  const upload = multer({ storage: uploadStorage(config), limits: { fileSize: config.maxUploadBytes } });
 
   router.post(
     "/items/text",
@@ -82,18 +118,23 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
     upload.single("file"),
     asyncHandler(async (req, res) => {
       if (!req.file) badRequest("file is required");
-      const origin = parseOrigin(req.body.origin);
 
-      const item = await store.createUploadedFileItem({
-        title: typeof req.body.title === "string" ? req.body.title : undefined,
-        origin,
-        sourceDevice: String(req.body.sourceDevice ?? config.deviceName),
-        tags: parseTags(req.body.tags),
-        sharedToMobile: parseBoolean(req.body.sharedToMobile),
-        originalFilename: req.file.originalname,
-        mimeType: req.file.mimetype,
-        buffer: req.file.buffer
-      });
+      let item: PocketItem;
+      try {
+        const origin = parseOrigin(req.body.origin);
+        item = await store.importFileItem({
+          title: typeof req.body.title === "string" ? req.body.title : undefined,
+          origin,
+          sourceDevice: String(req.body.sourceDevice ?? config.deviceName),
+          tags: parseTags(req.body.tags),
+          sharedToMobile: parseBoolean(req.body.sharedToMobile, "sharedToMobile"),
+          originalFilename: req.file.originalname,
+          mimeType: req.file.mimetype,
+          sourcePath: req.file.path
+        });
+      } finally {
+        await cleanupStagedUpload(req.file);
+      }
 
       hub.broadcast("item.created", { item });
       res.status(201).json({ item });
@@ -104,9 +145,33 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
     "/items",
     asyncHandler(async (req, res) => {
       const origin = req.query.origin ? parseOrigin(req.query.origin) : undefined;
-      const sharedToMobile =
-        req.query.sharedToMobile === undefined ? undefined : String(req.query.sharedToMobile) === "true";
-      const items = await store.listItems({ origin, sharedToMobile, limit: parseLimit(req.query.limit) });
+      const sharedToMobile = parseBoolean(req.query.sharedToMobile, "sharedToMobile");
+      const includeArchived = parseBoolean(req.query.includeArchived, "includeArchived") ?? false;
+      const items = await store.listItems({
+        origin,
+        sharedToMobile,
+        includeArchived,
+        limit: parseLimit(req.query.limit)
+      });
+      res.json({ items });
+    })
+  );
+
+  router.get(
+    "/items/search",
+    asyncHandler(async (req, res) => {
+      const query = String(req.query.q ?? "").trim();
+      if (!query) badRequest("q is required");
+
+      const origin = req.query.origin ? parseOrigin(req.query.origin) : undefined;
+      const sharedToMobile = parseBoolean(req.query.sharedToMobile, "sharedToMobile");
+      const includeArchived = parseBoolean(req.query.includeArchived, "includeArchived") ?? false;
+      const items = await store.searchItems(query, {
+        origin,
+        sharedToMobile,
+        includeArchived,
+        limit: parseLimit(req.query.limit)
+      });
       res.json({ items });
     })
   );
@@ -130,7 +195,11 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
       if (!item.storageRelPath) notFound("Item has no downloadable file");
 
       const absolutePath = absoluteStoragePath(config, item.storageRelPath);
-      await fs.access(absolutePath);
+      try {
+        await fs.access(absolutePath, constants.R_OK);
+      } catch {
+        notFound("Item file not found");
+      }
       res.setHeader("Content-Type", item.mimeType ?? "application/octet-stream");
       res.download(absolutePath, item.originalFilename ?? path.basename(absolutePath));
     })
@@ -140,10 +209,36 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
     "/items/:id/share-to-mobile",
     asyncHandler(async (req, res) => {
       const id = paramString(req.params.id, "id");
-      const item = await store.updateItem(id, { sharedToMobile: parseBoolean(req.body.sharedToMobile) ?? true });
+      const item = await store.updateItem(id, {
+        sharedToMobile: parseBoolean(req.body.sharedToMobile, "sharedToMobile") ?? true
+      });
       if (!item) notFound("Item not found");
 
       hub.broadcast("item.shared", { item });
+      res.json({ item });
+    })
+  );
+
+  router.post(
+    "/items/:id/archive",
+    asyncHandler(async (req, res) => {
+      const id = paramString(req.params.id, "id");
+      const item = await store.archiveItem(id, parseBoolean(req.body.archived, "archived") ?? true);
+      if (!item) notFound("Item not found");
+
+      hub.broadcast("item.updated", { item });
+      res.json({ item });
+    })
+  );
+
+  router.delete(
+    "/items/:id",
+    asyncHandler(async (req, res) => {
+      const id = paramString(req.params.id, "id");
+      const item = await store.deleteItem(id);
+      if (!item) notFound("Item not found");
+
+      hub.broadcast("item.deleted", { item });
       res.json({ item });
     })
   );

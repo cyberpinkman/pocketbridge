@@ -25,6 +25,7 @@
           <img id="qr" alt="PocketBridge pairing QR" src="/api/pairing/qr.svg" />
           <code id="serverUrl"></code>
           <code id="pairCode"></code>
+          <pre id="pairingPayload" class="payload"></pre>
         </aside>
 
         <section class="panel controls">
@@ -56,9 +57,17 @@
       </section>
 
       <section class="panel inbox">
-        <div class="section-head">
+        <div class="section-head inbox-head">
           <h2>PocketInbox</h2>
-          <button id="refresh">Refresh</button>
+          <div class="inbox-tools">
+            <input id="searchInput" type="search" placeholder="Search inbox" />
+            <label class="check">
+              <input id="includeArchived" type="checkbox" />
+              Show archived
+            </label>
+            <button id="search">Search</button>
+            <button id="refresh">Refresh</button>
+          </div>
         </div>
         <div id="items" class="items"></div>
       </section>
@@ -67,4 +76,3 @@
     <script type="module" src="/app.js"></script>
   </body>
 </html>
-

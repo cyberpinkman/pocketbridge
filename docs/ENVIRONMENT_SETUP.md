@@ -94,13 +94,16 @@ Passing:
 
 - Flutter SDK.
 - Android toolchain.
+- Android debug APK build.
 - Chrome/web target.
 - Network resources.
 
 Remaining:
 
+- Android physical-device run is not verified yet because no device was available.
 - iOS simulator runtimes are not installed.
 - CocoaPods is not installed yet.
+- `flutter analyze` can crash on this machine when run from the current non-ASCII repository path; `dart analyze` works, and `flutter analyze` works from an ASCII-only copy of the Flutter app.
 
 CocoaPods install attempts:
 
@@ -115,8 +118,40 @@ Both attempts stalled in RubyGems dependency resolution on the system Ruby 2.6 r
 
 For the hackathon, implement and test the Flutter app first on:
 
-1. Chrome/web target, fastest.
-2. Android device, if available.
-3. iOS simulator only after simulator runtime and CocoaPods are fixed.
+1. Android debug APK build and Flutter unit/widget tests.
+2. Android device, once available.
+3. Chrome/mobile browser fallback for live demo backup.
+4. iOS simulator only after simulator runtime and CocoaPods are fixed.
 
 This is enough to build the PocketBridge mobile MVP because the app mainly needs QR parsing, REST upload/download, and WebSocket updates.
+
+## Fresh Clone Checklist
+
+Use the current MVP branch until it is merged:
+
+```bash
+git clone https://github.com/cyberpinkman/pocketbridge.git
+cd pocketbridge
+git checkout codex/mobile-flutter-scaffold
+```
+
+Server verification:
+
+Run each verification block from the repository root.
+
+```bash
+cd server
+npm install
+npm run build
+npm test
+npm run demo:smoke
+```
+
+Flutter verification:
+
+```bash
+cd apps/mobile_flutter
+$HOME/development/flutter/bin/flutter pub get
+$HOME/development/flutter/bin/flutter test
+$HOME/development/flutter/bin/flutter build apk --debug
+```

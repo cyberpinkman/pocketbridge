@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
@@ -19,7 +21,7 @@ class PocketApiException implements Exception {
 
 class PocketBridgeApi {
   PocketBridgeApi(this.pairing, {http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   final PairingInfo pairing;
   final http.Client _client;
@@ -49,6 +51,20 @@ class PocketBridgeApi {
         statusCode: response.statusCode,
       );
     }
+
+    Object decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw const FormatException(
+        'Health response must be a JSON object with ok=true',
+      );
+    }
+    if (decoded is! Map<String, dynamic> || decoded['ok'] != true) {
+      throw const FormatException(
+        'Health response must be a JSON object with ok=true',
+      );
+    }
   }
 
   Future<PocketItem> uploadText({
@@ -73,12 +89,12 @@ class PocketBridgeApi {
   Future<PocketItem> uploadFile({
     required PlatformFile file,
     required String sourceDevice,
+    void Function(int sentBytes, int totalBytes)? onProgress,
   }) async {
     final request = http.MultipartRequest('POST', _uri('/api/items/upload'))
       ..headers.addAll(_authHeaders)
       ..fields['origin'] = 'mobile'
       ..fields['sourceDevice'] = sourceDevice
-      ..fields['title'] = file.name
       ..fields['tags'] = jsonEncode(['mobile']);
 
     final contentType = _mediaTypeFor(file);
@@ -86,7 +102,7 @@ class PocketBridgeApi {
       request.files.add(
         http.MultipartFile(
           'file',
-          file.readStream!,
+          _trackProgress(file.readStream!, file.size, onProgress),
           file.size,
           filename: file.name,
           contentType: contentType,
@@ -94,18 +110,20 @@ class PocketBridgeApi {
       );
     } else if (file.path != null) {
       request.files.add(
-        await http.MultipartFile.fromPath(
+        http.MultipartFile(
           'file',
-          file.path!,
+          _trackProgress(File(file.path!).openRead(), file.size, onProgress),
+          file.size,
           filename: file.name,
           contentType: contentType,
         ),
       );
     } else if (file.bytes != null) {
       request.files.add(
-        http.MultipartFile.fromBytes(
+        http.MultipartFile(
           'file',
-          file.bytes!,
+          _trackProgress(Stream.value(file.bytes!), file.size, onProgress),
+          file.size,
           filename: file.name,
           contentType: contentType,
         ),
@@ -116,6 +134,7 @@ class PocketBridgeApi {
       );
     }
 
+    onProgress?.call(0, file.size);
     final streamed = await _client.send(request);
     final body = await streamed.stream.bytesToString();
     if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
@@ -125,20 +144,24 @@ class PocketBridgeApi {
       );
     }
 
+    onProgress?.call(file.size, file.size);
     return _itemFromBody(body);
   }
 
-  Future<List<PocketItem>> listItems() async {
-    final response = await _client.get(
-      _uri('/api/items'),
-      headers: _authHeaders,
-    );
-    return _itemsFromResponse(response);
+  Future<List<PocketItem>> listSharedItems() async {
+    return listItems(sharedToMobile: true);
   }
 
-  Future<List<PocketItem>> listSharedItems() async {
+  Future<List<PocketItem>> listItems({bool? sharedToMobile}) async {
+    final queryParameters = <String, String>{};
+    if (sharedToMobile != null) {
+      queryParameters['sharedToMobile'] = sharedToMobile.toString();
+    }
+
     final response = await _client.get(
-      _uri('/api/items?sharedToMobile=true'),
+      _uri('/api/items').replace(
+        queryParameters: queryParameters.isEmpty ? null : queryParameters,
+      ),
       headers: _authHeaders,
     );
     return _itemsFromResponse(response);
@@ -163,9 +186,75 @@ class PocketBridgeApi {
 
     return PocketDownloadedFile(
       filename:
-          _filenameFromHeaders(response.headers) ?? item.originalFilename ?? item.title,
+          _filenameFromHeaders(response.headers) ??
+          item.originalFilename ??
+          item.title,
       bytes: response.bodyBytes,
-      contentType: response.headers['content-type'] ?? 'application/octet-stream',
+      contentType:
+          response.headers['content-type'] ?? 'application/octet-stream',
+    );
+  }
+
+  Future<PocketSavedDownload> downloadToDirectory(
+    PocketItem item,
+    Directory directory, {
+    void Function(int receivedBytes, int totalBytes)? onProgress,
+  }) async {
+    final downloadUrl = item.downloadUrl;
+    if (downloadUrl == null || downloadUrl.isEmpty) {
+      throw PocketApiException('Item has no download URL');
+    }
+
+    await directory.create(recursive: true);
+    final request = http.Request('GET', _uri(downloadUrl))
+      ..headers.addAll(_authHeaders);
+    final streamed = await _client.send(request);
+    if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
+      final body = await streamed.stream.bytesToString();
+      throw PocketApiException(
+        _errorMessageFromBody(body, streamed.reasonPhrase),
+        statusCode: streamed.statusCode,
+      );
+    }
+
+    final filename = _safeFilename(
+      _filenameFromHeaders(streamed.headers) ??
+          item.originalFilename ??
+          item.title,
+    );
+    final target = await _uniqueDownloadFile(directory, filename);
+    final sink = target.openWrite();
+    final totalBytes = streamed.contentLength ?? -1;
+    var receivedBytes = 0;
+    onProgress?.call(0, totalBytes);
+
+    try {
+      await for (final chunk in streamed.stream) {
+        receivedBytes += chunk.length;
+        sink.add(chunk);
+        onProgress?.call(receivedBytes, totalBytes);
+      }
+      await sink.close();
+    } catch (_) {
+      try {
+        await sink.close();
+      } catch (_) {
+        // Preserve the original download failure.
+      }
+      try {
+        await target.delete();
+      } catch (_) {
+        // Best-effort cleanup of partial downloads.
+      }
+      rethrow;
+    }
+
+    return PocketSavedDownload(
+      filename: _basename(target.path),
+      path: target.path,
+      contentType:
+          streamed.headers['content-type'] ?? 'application/octet-stream',
+      bytesWritten: receivedBytes,
     );
   }
 
@@ -183,8 +272,8 @@ class PocketBridgeApi {
   void close() => _client.close();
 
   Map<String, String> get _authHeaders => {
-        'X-PocketBridge-Pair-Code': pairing.pairCode,
-      };
+    'X-PocketBridge-Pair-Code': pairing.pairCode,
+  };
 
   Uri _uri(String path) => Uri.parse(pairing.serverBaseUrl).resolve(path);
 
@@ -198,9 +287,7 @@ class PocketBridgeApi {
     }
 
     final uri = Uri.parse(value);
-    if (uri.path == '/api/pairing') {
-      return uri;
-    }
+    if (uri.path == '/api/pairing') return uri;
 
     return Uri(
       scheme: uri.scheme,
@@ -209,6 +296,25 @@ class PocketBridgeApi {
       path: '/api/pairing',
     );
   }
+}
+
+Stream<List<int>> _trackProgress(
+  Stream<List<int>> source,
+  int totalBytes,
+  void Function(int sentBytes, int totalBytes)? onProgress,
+) {
+  if (onProgress == null) return source;
+
+  var sentBytes = 0;
+  return source.transform(
+    StreamTransformer.fromHandlers(
+      handleData: (chunk, sink) {
+        sentBytes += chunk.length;
+        onProgress(sentBytes, totalBytes);
+        sink.add(chunk);
+      },
+    ),
+  );
 }
 
 PocketItem _itemFromResponse(http.Response response) {
@@ -259,12 +365,10 @@ String _errorMessageFromBody(String body, String? fallback) {
       if (error is Map<String, dynamic> && error['message'] is String) {
         return error['message'] as String;
       }
-      if (decoded['message'] is String) {
-        return decoded['message'] as String;
-      }
+      if (decoded['message'] is String) return decoded['message'] as String;
     }
   } catch (_) {
-    // Fall back to server status text below.
+    // Keep the server status text below.
   }
   return fallback ?? 'Request failed';
 }
@@ -272,21 +376,86 @@ String _errorMessageFromBody(String body, String? fallback) {
 MediaType? _mediaTypeFor(PlatformFile file) {
   final path = file.path ?? file.name;
   final mimeType = lookupMimeType(path);
-  if (mimeType == null) {
-    return null;
-  }
+  if (mimeType == null) return null;
   final parts = mimeType.split('/');
-  if (parts.length != 2) {
-    return null;
-  }
+  if (parts.length != 2) return null;
   return MediaType(parts[0], parts[1]);
+}
+
+Future<File> _uniqueDownloadFile(Directory directory, String filename) async {
+  var candidate = File('${directory.path}/$filename');
+  if (!await candidate.exists()) return candidate;
+
+  final dot = filename.lastIndexOf('.');
+  final hasExtension = dot > 0 && dot < filename.length - 1;
+  final stem = hasExtension ? filename.substring(0, dot) : filename;
+  final extension = hasExtension ? filename.substring(dot) : '';
+  for (var index = 1; index < 1000; index += 1) {
+    candidate = File('${directory.path}/$stem ($index)$extension');
+    if (!await candidate.exists()) return candidate;
+  }
+  throw PocketApiException('Could not create a unique download filename');
+}
+
+String _safeFilename(String name) {
+  final cleaned = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+  if (cleaned.isEmpty || RegExp(r'^\.+$').hasMatch(cleaned)) {
+    return 'pocketbridge-download';
+  }
+  return cleaned;
+}
+
+String _basename(String path) {
+  final slash = path.lastIndexOf('/');
+  final backslash = path.lastIndexOf(r'\');
+  final separator = slash > backslash ? slash : backslash;
+  return separator == -1 ? path : path.substring(separator + 1);
 }
 
 String? _filenameFromHeaders(Map<String, String> headers) {
   final disposition = headers['content-disposition'];
-  if (disposition == null) {
-    return null;
+  if (disposition == null) return null;
+
+  return _extendedFilename(disposition) ?? _basicFilename(disposition);
+}
+
+String? _extendedFilename(String disposition) {
+  final match = RegExp(
+    r'''(?:^|;)\s*filename\*\s*=\s*(?:"([^"]+)"|([^;]+))''',
+    caseSensitive: false,
+  ).firstMatch(disposition);
+  final value = match?.group(1) ?? match?.group(2);
+  if (value == null) return null;
+
+  final trimmed = value.trim();
+  final firstQuote = trimmed.indexOf("'");
+  final secondQuote = firstQuote < 0
+      ? -1
+      : trimmed.indexOf("'", firstQuote + 1);
+  final encoded = secondQuote >= 0
+      ? trimmed.substring(secondQuote + 1)
+      : trimmed;
+
+  try {
+    return _nonEmpty(Uri.decodeComponent(encoded));
+  } on FormatException {
+    return _nonEmpty(encoded);
   }
-  final match = RegExp(r'filename="?([^";]+)"?').firstMatch(disposition);
-  return match?.group(1);
+}
+
+String? _basicFilename(String disposition) {
+  final match = RegExp(
+    r'''(?:^|;)\s*filename\s*=\s*(?:"((?:\\.|[^"])*)"|([^;]+))''',
+    caseSensitive: false,
+  ).firstMatch(disposition);
+  final value = match?.group(1) ?? match?.group(2);
+  if (value == null) return null;
+
+  return _nonEmpty(
+    value.trim().replaceAllMapped(RegExp(r'\\(.)'), (match) => match.group(1)!),
+  );
+}
+
+String? _nonEmpty(String value) {
+  return value.isEmpty ? null : value;
 }

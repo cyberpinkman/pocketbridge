@@ -1,29 +1,29 @@
 import path from "node:path";
 import chokidar from "chokidar";
+import type { FSWatcher } from "chokidar";
 import type { Config } from "../config.js";
 import type { ItemStore } from "../storage/item-store.js";
+import { mimeTypeFromFilename } from "../storage/mime.js";
 import type { WebSocketHub } from "../websocket/hub.js";
 
-const MIME_BY_EXT: Record<string, string> = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
-  ".pdf": "application/pdf",
-  ".txt": "text/plain"
-};
+const SNAPZY_IMPORT_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "text/plain"
+]);
 
-export function startSnapzyWatch(config: Config, store: ItemStore, hub: WebSocketHub): void {
+export function startSnapzyWatch(config: Config, store: ItemStore, hub: WebSocketHub): FSWatcher {
   const watcher = chokidar.watch(config.snapzyWatchDir, {
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 700, pollInterval: 100 }
   });
 
   watcher.on("add", async (filePath) => {
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeType = MIME_BY_EXT[ext];
-    if (!mimeType) return;
+    const mimeType = mimeTypeFromFilename(filePath);
+    if (!mimeType || !SNAPZY_IMPORT_MIME_TYPES.has(mimeType)) return;
 
     try {
       const item = await store.importFileItem({
@@ -42,5 +42,6 @@ export function startSnapzyWatch(config: Config, store: ItemStore, hub: WebSocke
       console.error(`[snapzy] failed to import ${filePath}`, error);
     }
   });
-}
 
+  return watcher;
+}

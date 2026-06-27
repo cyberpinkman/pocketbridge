@@ -9,6 +9,9 @@ const els = {
   serverUrl: document.querySelector("#serverUrl"),
   pairCode: document.querySelector("#pairCode"),
   items: document.querySelector("#items"),
+  searchInput: document.querySelector("#searchInput"),
+  includeArchived: document.querySelector("#includeArchived"),
+  search: document.querySelector("#search"),
   refresh: document.querySelector("#refresh"),
   textForm: document.querySelector("#textForm"),
   textTitle: document.querySelector("#textTitle"),
@@ -16,7 +19,8 @@ const els = {
   fileForm: document.querySelector("#fileForm"),
   fileInput: document.querySelector("#fileInput"),
   shareImmediately: document.querySelector("#shareImmediately"),
-  bleStatus: document.querySelector("#bleStatus")
+  bleStatus: document.querySelector("#bleStatus"),
+  pairingPayload: document.querySelector("#pairingPayload")
 };
 
 function apiHeaders(json = true) {
@@ -24,6 +28,11 @@ function apiHeaders(json = true) {
     ...(json ? { "Content-Type": "application/json" } : {}),
     "X-PocketBridge-Pair-Code": state.pairing.pairCode
   };
+}
+
+async function httpError(response, fallback = "Request failed") {
+  const payload = await response.json().catch(() => ({ error: { message: response.statusText } }));
+  return new Error(payload.error?.message || response.statusText || fallback);
 }
 
 async function api(path, options = {}) {
@@ -36,8 +45,7 @@ async function api(path, options = {}) {
   });
 
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({ error: { message: response.statusText } }));
-    throw new Error(payload.error?.message ?? response.statusText);
+    throw await httpError(response);
   }
 
   return response.json();
@@ -76,27 +84,39 @@ async function runAction(label, target, action) {
 
 async function loadPairing() {
   const response = await fetch("/api/pairing");
+  if (!response.ok) {
+    throw await httpError(response, "Pairing failed");
+  }
   state.pairing = await response.json();
   els.deviceName.textContent = state.pairing.deviceName;
   els.serverUrl.textContent = state.pairing.serverBaseUrl;
   els.pairCode.textContent = `Pair code ${state.pairing.pairCode}`;
+  els.pairingPayload.textContent = JSON.stringify(state.pairing, null, 2);
 }
 
 function connectSocket() {
   const url = `${state.pairing.wsUrl}?pairCode=${encodeURIComponent(state.pairing.pairCode)}&client=mac`;
-  state.socket = new WebSocket(url);
+  const socket = new WebSocket(url);
+  state.socket = socket;
 
-  state.socket.addEventListener("open", () => setStatus("Connected"));
-  state.socket.addEventListener("close", () => {
+  socket.addEventListener("open", () => setStatus("Connected"));
+  socket.addEventListener("close", () => {
+    if (state.socket !== socket) return;
     setStatus("Disconnected");
     window.setTimeout(connectSocket, 1500);
   });
-  state.socket.addEventListener("message", (event) => {
-    const payload = JSON.parse(event.data);
+  socket.addEventListener("message", (event) => {
+    let payload;
+    try {
+      payload = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+
     if (payload.type === "ble.status") {
       renderBle(payload.data);
     }
-    if (["item.created", "item.updated", "item.shared", "knowledge.saved"].includes(payload.type)) {
+    if (["item.created", "item.updated", "item.shared", "item.deleted", "knowledge.saved"].includes(payload.type)) {
       void loadItems();
     }
   });
@@ -111,6 +131,7 @@ function itemSummary(item) {
   const chunks = [item.kind, item.origin, item.sourceDevice, new Date(item.createdAt).toLocaleString()];
   if (item.sharedToMobile) chunks.push("shared");
   if (item.status === "saved_to_knowledge") chunks.push("knowledge");
+  if (item.archivedAt) chunks.push("archived");
   return chunks.join(" / ");
 }
 
@@ -128,29 +149,58 @@ function renderItems(items) {
       <div>
         <h3></h3>
         <p class="meta"></p>
-        <p></p>
+        <p class="item-body"></p>
+        <p class="knowledge-path meta"></p>
       </div>
       <div class="actions">
         <button data-action="share">Share</button>
         <button data-action="knowledge">Save</button>
+        <button data-action="archive">${item.archivedAt ? "Restore" : "Archive"}</button>
+        <button data-action="delete">Delete</button>
         ${item.downloadUrl ? `<button data-action="download">Download</button>` : ""}
       </div>
     `;
 
     row.querySelector("h3").textContent = item.title;
     row.querySelector(".meta").textContent = itemSummary(item);
-    row.querySelector("p:not(.meta)").textContent = item.text || item.originalFilename || item.storageRelPath || "";
+    row.querySelector(".item-body").textContent = item.text || item.originalFilename || item.storageRelPath || "";
+    const knowledgePath = row.querySelector(".knowledge-path");
+    if (item.knowledgePath) {
+      knowledgePath.textContent = `Markdown ${item.knowledgePath}`;
+    } else {
+      knowledgePath.remove();
+    }
     row.querySelector('[data-action="share"]').addEventListener("click", (event) => shareItem(item.id, event.currentTarget));
     row.querySelector('[data-action="knowledge"]').addEventListener("click", (event) =>
       saveKnowledge(item.id, event.currentTarget)
+    );
+    row.querySelector('[data-action="archive"]').addEventListener("click", (event) =>
+      archiveItem(item, event.currentTarget)
+    );
+    row.querySelector('[data-action="delete"]').addEventListener("click", (event) =>
+      deleteItem(item, event.currentTarget)
     );
     row.querySelector('[data-action="download"]')?.addEventListener("click", (event) => downloadItem(item, event.currentTarget));
     els.items.append(row);
   }
 }
 
+function itemsEndpoint() {
+  const params = new URLSearchParams();
+  const query = els.searchInput.value.trim();
+  if (els.includeArchived.checked) params.set("includeArchived", "true");
+
+  if (query) {
+    params.set("q", query);
+    return `/api/items/search?${params.toString()}`;
+  }
+
+  const queryString = params.toString();
+  return `/api/items${queryString ? `?${queryString}` : ""}`;
+}
+
 async function loadItems() {
-  const payload = await api("/api/items");
+  const payload = await api(itemsEndpoint());
   renderItems(payload.items);
 }
 
@@ -181,12 +231,36 @@ async function saveKnowledge(id, target) {
   });
 }
 
+async function archiveItem(item, target) {
+  const archived = !item.archivedAt;
+  await runAction(archived ? "Archive" : "Restore", target, async () => {
+    await api(`/api/items/${item.id}/archive`, {
+      method: "POST",
+      headers: apiHeaders(),
+      body: JSON.stringify({ archived })
+    });
+    await loadItems();
+  });
+}
+
+async function deleteItem(item, target) {
+  if (!window.confirm(`Delete "${item.title}" from PocketBridge?`)) return;
+
+  await runAction("Delete", target, async () => {
+    await api(`/api/items/${item.id}`, {
+      method: "DELETE",
+      headers: apiHeaders(false)
+    });
+    await loadItems();
+  });
+}
+
 async function downloadItem(item, target) {
   await runAction("Download", target, async () => {
     const response = await fetch(`${state.pairing.serverBaseUrl}${item.downloadUrl}`, {
       headers: apiHeaders(false)
     });
-    if (!response.ok) throw new Error("Download failed");
+    if (!response.ok) throw await httpError(response, "Download failed");
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -197,6 +271,15 @@ async function downloadItem(item, target) {
   });
 }
 
+els.search.addEventListener("click", () => runAction("Search", els.search, loadItems));
+els.searchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    void runAction("Search", els.search, loadItems);
+  }
+});
+els.includeArchived.addEventListener("change", () => {
+  void runAction("Refresh", els.includeArchived, loadItems);
+});
 els.refresh.addEventListener("click", () => runAction("Refresh", els.refresh, loadItems));
 
 els.textForm.addEventListener("submit", async (event) => {
@@ -236,7 +319,7 @@ els.fileForm.addEventListener("submit", async (event) => {
       body: form
     });
 
-    if (!response.ok) throw new Error("Upload failed");
+    if (!response.ok) throw await httpError(response, "Upload failed");
     els.fileForm.reset();
     els.shareImmediately.checked = true;
     await loadItems();

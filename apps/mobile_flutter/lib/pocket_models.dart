@@ -75,6 +75,7 @@ class PocketItem {
     this.originalFilename,
     this.storageRelPath,
     this.text,
+    this.archivedAt,
     this.downloadUrl,
     this.knowledgePath,
   });
@@ -94,6 +95,7 @@ class PocketItem {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? archivedAt;
   final String? downloadUrl;
   final String? knowledgePath;
 
@@ -114,6 +116,7 @@ class PocketItem {
       status: _requiredString(json, 'status'),
       createdAt: DateTime.parse(_requiredString(json, 'createdAt')),
       updatedAt: DateTime.parse(_requiredString(json, 'updatedAt')),
+      archivedAt: DateTime.tryParse(_stringOr(json['archivedAt'], '')),
       downloadUrl: json['downloadUrl'] as String?,
       knowledgePath: json['knowledgePath'] as String?,
     );
@@ -134,6 +137,20 @@ class PocketDownloadedFile {
   final String contentType;
 }
 
+class PocketSavedDownload {
+  PocketSavedDownload({
+    required this.filename,
+    required this.path,
+    required this.contentType,
+    required this.bytesWritten,
+  });
+
+  final String filename;
+  final String path;
+  final String contentType;
+  final int bytesWritten;
+}
+
 String _requiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
@@ -143,9 +160,7 @@ String _requiredString(Map<String, dynamic> json, String key) {
 }
 
 String _stringOr(Object? value, String fallback) {
-  if (value is String && value.trim().isNotEmpty) {
-    return value;
-  }
+  if (value is String && value.trim().isNotEmpty) return value;
   return fallback;
 }
 
