@@ -176,6 +176,7 @@ npm install
 npm run build
 npm test
 npm run demo:smoke
+npm run demo:ui-smoke
 npm run demo:lan-check
 ```
 

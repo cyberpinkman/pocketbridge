@@ -123,6 +123,58 @@ try {
   assert.deepEqual(macPageErrors, []);
   log("Knowledge path appeared in PocketInbox");
 
+  await macPage.locator("#searchInput").fill("Fallback");
+  await macPage.getByRole("button", { name: "Search" }).click();
+  await macPage.waitForFunction(() => document.querySelector("#status")?.textContent === "Search complete");
+  assert.match(await macPage.locator("#items").innerText(), /Fallback note/);
+  assert.deepEqual(macPageErrors, []);
+  log("PocketInbox search returned fallback item");
+
+  await macPage.locator("#searchInput").fill("no-such-fallback-note");
+  await macPage.getByRole("button", { name: "Search" }).click();
+  await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("Inbox empty"));
+  assert.match(await macPage.locator("#items").innerText(), /Inbox empty/);
+  assert.deepEqual(macPageErrors, []);
+  log("PocketInbox search empty state rendered");
+
+  await macPage.locator("#searchInput").fill("");
+  await macPage.getByRole("button", { name: "Search" }).click();
+  await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("Fallback note"));
+  await macPage.getByRole("button", { name: "Archive" }).click();
+  await macPage.waitForFunction(() => document.querySelector("#status")?.textContent === "Archive complete");
+  await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("Inbox empty"));
+  assert.match(await macPage.locator("#items").innerText(), /Inbox empty/);
+  assert.deepEqual(macPageErrors, []);
+  log("PocketInbox archive hid item by default");
+
+  await macPage.locator("#includeArchived").check();
+  await macPage.waitForFunction(() => document.querySelector("#status")?.textContent === "Refresh complete");
+  await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("Fallback note"));
+  assert.match(await macPage.locator("#items").innerText(), /archived/);
+  assert.deepEqual(macPageErrors, []);
+  log("PocketInbox show archived displayed archived item");
+
+  await macPage.getByRole("button", { name: "Restore" }).click();
+  await macPage.waitForFunction(() => document.querySelector("#status")?.textContent === "Restore complete");
+  await macPage.waitForFunction(() => {
+    const text = document.querySelector("#items")?.textContent ?? "";
+    return text.includes("Fallback note") && !text.includes("archived");
+  });
+  assert.doesNotMatch(await macPage.locator("#items").innerText(), /archived/);
+  assert.deepEqual(macPageErrors, []);
+  log("PocketInbox restore cleared archived state");
+
+  macPage.once("dialog", (dialog) => {
+    assert.match(dialog.message(), /Delete "Fallback note" from PocketBridge\?/);
+    void dialog.accept();
+  });
+  await macPage.getByRole("button", { name: "Delete" }).click();
+  await macPage.waitForFunction(() => document.querySelector("#status")?.textContent === "Delete complete");
+  await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("Inbox empty"));
+  assert.match(await macPage.locator("#items").innerText(), /Inbox empty/);
+  assert.deepEqual(macPageErrors, []);
+  log("PocketInbox delete removed item");
+
   await waitForWatcherReady(runtime.watcher);
   await fs.writeFile(path.join(cfg.snapzyWatchDir, "snapzy-ui.png"), "png");
   await macPage.waitForFunction(() => document.querySelector("#items")?.textContent?.includes("snapzy-ui.png"));
