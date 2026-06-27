@@ -2,6 +2,24 @@
 
 PocketBridge connects a phone and a Mac over the local network for fast capture, file transfer, PocketInbox review, and local knowledge-base export.
 
+## Current MVP Branch
+
+Until the MVP branch is merged back to `main`, clone and check out the working branch explicitly:
+
+```bash
+git clone https://github.com/cyberpinkman/pocketbridge.git
+cd pocketbridge
+git checkout codex/mobile-flutter-scaffold
+```
+
+If you already cloned the repository:
+
+```bash
+git fetch origin
+git checkout codex/mobile-flutter-scaffold
+git pull --ff-only
+```
+
 ## Start Server
 
 ```bash
@@ -35,10 +53,13 @@ The Android-first Flutter MVP lives in:
 apps/mobile_flutter/
 ```
 
-Run it after the Mac server is up:
+Commands below use this machine's Flutter SDK path. If your Flutter SDK is already on `PATH`, `flutter` can replace `$HOME/development/flutter/bin/flutter`.
+
+Run it from the repository root after the Mac server is up. On a fresh clone, install Flutter packages first:
 
 ```bash
 cd apps/mobile_flutter
+$HOME/development/flutter/bin/flutter pub get
 $HOME/development/flutter/bin/flutter run -d <android-device-id>
 ```
 
@@ -47,6 +68,13 @@ If no Android device is available, use the browser fallback printed by the serve
 ```text
 http://<mac-lan-ip>:3000/mobile.html
 ```
+
+For an Android phone run, make sure:
+
+- The phone and Mac are on the same network.
+- Android Developer Options and USB debugging are enabled.
+- `$HOME/development/flutter/bin/flutter devices` lists the phone.
+- If the phone cannot reach the QR URL, restart the server with `PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run dev`.
 
 ## Shared Contract
 
@@ -83,6 +111,19 @@ Key defaults:
 - Knowledge export: `POST /api/knowledge/:id`
 - BLE status: `GET /api/ble/status`, `POST /api/ble/status`
 
+Runtime environment variables:
+
+- `PORT`: HTTP port, default `3000`
+- `PB_PUBLIC_HOST`: Mac IP/hostname embedded in QR payload for phone access
+- `PB_SERVER_BASE_URL`: full override for the QR/API base URL
+- `PB_WS_URL`: full override for the WebSocket URL
+- `PB_DATA_DIR`: runtime data directory, default `data/` at the repository root
+- `PB_OBSIDIAN_DIR`: Markdown export directory, default `data/obsidian/PocketBridge/`
+- `PB_SNAPZY_WATCH_DIR`: Snapzy import watch directory, default `data/watch/snapzy/`
+- `PB_PAIR_CODE`: fixed pair code override; otherwise generated on server start
+- `PB_DEVICE_NAME`: displayed Mac/source device name
+- `PB_MAX_UPLOAD_MB`: upload size limit in MB, default `100`
+
 ## Runtime Data
 
 Generated data is ignored by git:
@@ -94,7 +135,7 @@ data/obsidian/PocketBridge/
 data/watch/snapzy/
 ```
 
-When following the start command above, `data/` is created under `server/` because the server process is started from that directory. Override with `PB_DATA_DIR=<absolute-or-relative-path>` if needed.
+When following the start command above, `data/` is created at the repository root. Override with `PB_DATA_DIR=<absolute-or-relative-path>` if needed.
 
 For the Snapzy MVP, export or copy screenshots into:
 
@@ -113,6 +154,31 @@ docs/DEMO_SCRIPT.md
 ```
 
 Before a live run, verify the local demo chain with `cd server && npm run demo:smoke`.
+
+## Verification
+
+Run these from the repository root.
+
+Core server checks:
+
+```bash
+cd server
+npm install
+npm run build
+npm test
+npm run demo:smoke
+```
+
+Core Flutter checks:
+
+```bash
+cd apps/mobile_flutter
+$HOME/development/flutter/bin/flutter pub get
+$HOME/development/flutter/bin/flutter test
+$HOME/development/flutter/bin/flutter build apk --debug
+```
+
+Android real-device testing is intentionally deferred until a physical device is available.
 
 ## License
 

@@ -5,7 +5,14 @@
 Run from the repository root:
 
 ```bash
+git checkout codex/mobile-flutter-scaffold
+```
+
+Then start the server:
+
+```bash
 cd server
+npm install
 npm run dev
 ```
 
@@ -30,7 +37,7 @@ If the phone cannot open the printed URL, restart with:
 PB_PUBLIC_HOST=<phone-reachable-mac-ip> npm run dev
 ```
 
-Paths under `data/` below are relative to the `server/` directory when using this start command.
+Paths under `data/` below are relative to the repository root when using this start command.
 
 ## Demo Flow
 
@@ -41,6 +48,7 @@ Android run command in a second terminal from the repository root:
 
 ```bash
 cd apps/mobile_flutter
+$HOME/development/flutter/bin/flutter pub get
 $HOME/development/flutter/bin/flutter run -d <android-device-id>
 ```
 
@@ -160,7 +168,7 @@ curl -X DELETE "$BASE_URL/api/items/$ITEM_ID" \
 Trigger Snapzy folder import:
 
 ```bash
-# Run this from the `server/` directory when using the start command above.
+# Run this from the repository root.
 mkdir -p data/watch/snapzy
 printf 'snapzy demo' > data/watch/snapzy/demo-snapzy.txt
 ```
