@@ -44,6 +44,8 @@ data/
   metadata.json
   obsidian/
     PocketBridge/
+  tmp/
+    uploads/
   watch/
     snapzy/
 ```

@@ -312,6 +312,32 @@ test("HTTP API rejects invalid boolean and limit parameters", async () => {
   }
 });
 
+test("HTTP upload stages multipart files on disk and cleans staging files", async () => {
+  const { runtime, config } = await startRuntime();
+  try {
+    const form = new FormData();
+    form.append("file", new Blob(["staged file"], { type: "text/plain" }), "staged.txt");
+    form.append("origin", "mobile");
+    form.append("sourceDevice", "PocketBridge Android");
+
+    const payload = await jsonResponse(
+      await fetch(`${config.serverBaseUrl}/api/items/upload`, {
+        method: "POST",
+        headers: authHeaders(config, false),
+        body: form
+      })
+    );
+
+    const item = itemFrom(payload);
+    assert.equal(item.originalFilename, "staged.txt");
+    assert.equal(item.sizeBytes, "staged file".length);
+    assert.equal(await fs.readFile(path.join(config.dataDir, item.storageRelPath as string), "utf8"), "staged file");
+    assert.deepEqual(await fs.readdir(path.join(config.dataDir, "tmp", "uploads")), []);
+  } finally {
+    await runtime.close();
+  }
+});
+
 test("HTTP API returns contract error codes for auth, missing items, and oversized uploads", async () => {
   const config = await testConfig();
   config.maxUploadBytes = 4;

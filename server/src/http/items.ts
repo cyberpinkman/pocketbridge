@@ -1,12 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { Router } from "express";
 import multer from "multer";
 import type { Config } from "../config.js";
 import type { ItemStore } from "../storage/item-store.js";
 import { absoluteStoragePath } from "../storage/file-store.js";
-import { isPocketItemOrigin, type PocketItemOrigin } from "../types.js";
+import { isPocketItemOrigin, type PocketItem, type PocketItemOrigin } from "../types.js";
 import type { WebSocketHub } from "../websocket/hub.js";
 import { asyncHandler, badRequest, notFound } from "./errors.js";
 
@@ -64,9 +65,33 @@ function paramString(value: string | string[] | undefined, name: string): string
   return value;
 }
 
+function uploadStagingDir(config: Config): string {
+  return path.join(config.dataDir, "tmp", "uploads");
+}
+
+function uploadStorage(config: Config): multer.StorageEngine {
+  return multer.diskStorage({
+    destination(_req, _file, callback) {
+      const stagingDir = uploadStagingDir(config);
+      fs.mkdir(stagingDir, { recursive: true }).then(
+        () => callback(null, stagingDir),
+        (error) => callback(error as Error, stagingDir)
+      );
+    },
+    filename(_req, _file, callback) {
+      callback(null, `${Date.now()}-${randomUUID()}`);
+    }
+  });
+}
+
+async function cleanupStagedUpload(file: Express.Multer.File): Promise<void> {
+  if (!file.path) return;
+  await fs.rm(file.path, { force: true });
+}
+
 export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub): Router {
   const router = Router();
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.maxUploadBytes } });
+  const upload = multer({ storage: uploadStorage(config), limits: { fileSize: config.maxUploadBytes } });
 
   router.post(
     "/items/text",
@@ -93,18 +118,23 @@ export function itemsRouter(config: Config, store: ItemStore, hub: WebSocketHub)
     upload.single("file"),
     asyncHandler(async (req, res) => {
       if (!req.file) badRequest("file is required");
-      const origin = parseOrigin(req.body.origin);
 
-      const item = await store.createUploadedFileItem({
-        title: typeof req.body.title === "string" ? req.body.title : undefined,
-        origin,
-        sourceDevice: String(req.body.sourceDevice ?? config.deviceName),
-        tags: parseTags(req.body.tags),
-        sharedToMobile: parseBoolean(req.body.sharedToMobile, "sharedToMobile"),
-        originalFilename: req.file.originalname,
-        mimeType: req.file.mimetype,
-        buffer: req.file.buffer
-      });
+      let item: PocketItem;
+      try {
+        const origin = parseOrigin(req.body.origin);
+        item = await store.importFileItem({
+          title: typeof req.body.title === "string" ? req.body.title : undefined,
+          origin,
+          sourceDevice: String(req.body.sourceDevice ?? config.deviceName),
+          tags: parseTags(req.body.tags),
+          sharedToMobile: parseBoolean(req.body.sharedToMobile, "sharedToMobile"),
+          originalFilename: req.file.originalname,
+          mimeType: req.file.mimetype,
+          sourcePath: req.file.path
+        });
+      } finally {
+        await cleanupStagedUpload(req.file);
+      }
 
       hub.broadcast("item.created", { item });
       res.status(201).json({ item });

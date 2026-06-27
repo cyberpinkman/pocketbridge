@@ -141,6 +141,7 @@ Generated data is ignored by git:
 data/inbox/
 data/metadata.json
 data/obsidian/PocketBridge/
+data/tmp/uploads/
 data/watch/snapzy/
 ```
 

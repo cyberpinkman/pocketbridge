@@ -19,6 +19,7 @@ Status as of 2026-06-28 on branch `codex/mobile-flutter-scaffold`:
 - API error contract codes for invalid auth, missing items, bad request parameters, and oversized uploads are covered by `npm test`.
 - Runtime configuration for pairing URLs, generated pair codes, custom Obsidian/Snapzy directories, runtime directory creation, and upload-size fallback is covered by `npm test`.
 - Server restart persistence and API-level phone upload are covered by `npm run demo:smoke`.
+- HTTP multipart uploads now stage files under `data/tmp/uploads/` and import them into `data/inbox/` without buffering the whole upload in process memory; staging files are cleaned after import.
 - Concurrent file-item metadata updates are serialized and covered by `npm test`.
 - File downloads, knowledge attachment copies, sidecar metadata writes, and file-item deletion now reject or ignore metadata `storageRelPath` values outside `data/inbox/`.
 - BLE `trusted -> away` API updates and WebSocket events are covered by HTTP tests and `npm run demo:smoke`.
