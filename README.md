@@ -112,6 +112,8 @@ Use:
 docs/DEMO_SCRIPT.md
 ```
 
+Before a live run, verify the local demo chain with `cd server && npm run demo:smoke`.
+
 ## License
 
 MIT. See `LICENSE`.

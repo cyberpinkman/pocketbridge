@@ -73,6 +73,15 @@ data/watch/snapzy/
 
 ## Useful Smoke Commands
 
+Run the automated local demo smoke first:
+
+```bash
+cd server
+npm run demo:smoke
+```
+
+It uses a temporary data directory and verifies pairing, upload, inbox listing, knowledge export, Snapzy import, share-back download, search/archive/delete, WebSocket events, and BLE state.
+
 Create a phone text item:
 
 ```bash
