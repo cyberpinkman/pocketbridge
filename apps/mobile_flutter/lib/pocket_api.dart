@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
@@ -109,9 +110,10 @@ class PocketBridgeApi {
       );
     } else if (file.path != null) {
       request.files.add(
-        await http.MultipartFile.fromPath(
+        http.MultipartFile(
           'file',
-          file.path!,
+          _trackProgress(File(file.path!).openRead(), file.size, onProgress),
+          file.size,
           filename: file.name,
           contentType: contentType,
         ),

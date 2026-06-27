@@ -236,6 +236,47 @@ void main() {
     },
   );
 
+  test(
+    'uploadFile reports progress for path-based files before response',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'pocketbridge-upload-test-',
+      );
+      final file = File('${directory.path}/path-note.txt');
+      await file.writeAsString('hello');
+      final progress = <int>[];
+
+      try {
+        final api = PocketBridgeApi(
+          _pairing(),
+          client: MockClient.streaming((request, bodyStream) async {
+            final body = utf8.decode(await bodyStream.toBytes());
+            expect(body, contains('filename="path-note.txt"'));
+            expect(body, contains('hello'));
+            expect(progress, contains(5));
+
+            return http.StreamedResponse(
+              Stream.value(utf8.encode(jsonEncode({'item': _fileItemJson()}))),
+              201,
+              headers: {'content-type': 'application/json'},
+            );
+          }),
+        );
+
+        await api.uploadFile(
+          file: PlatformFile(name: 'path-note.txt', size: 5, path: file.path),
+          sourceDevice: 'PocketBridge Android',
+          onProgress: (sentBytes, _) => progress.add(sentBytes),
+        );
+
+        expect(progress.first, 0);
+        expect(progress.last, 5);
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    },
+  );
+
   test('listItems calls the unfiltered inbox endpoint with auth', () async {
     final api = PocketBridgeApi(
       _pairing(),
