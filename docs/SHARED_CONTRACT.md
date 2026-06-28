@@ -176,6 +176,12 @@ Request:
 }
 ```
 
+Required fields:
+
+- `text`: required non-empty string.
+- `origin`: required, one of `mobile`, `mac`, `snapzy`.
+- `sourceDevice`: required non-empty string.
+
 Response:
 
 ```json
@@ -330,7 +336,7 @@ Response:
   "item": {
     "id": "itm_1782547200000_a9f4c21b",
     "status": "saved_to_knowledge",
-  "knowledgePath": "data/obsidian/PocketBridge/2026-06-27-idea-from-phone-itm_1782547200000_a9f4c21b.md"
+    "knowledgePath": "data/obsidian/PocketBridge/2026-06-27-idea-from-phone-itm_1782547200000_a9f4c21b.md"
   }
 }
 ```

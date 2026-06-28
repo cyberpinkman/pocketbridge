@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PocketBridge Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="window-bar">
+      <div class="traffic" aria-hidden="true">
+        <span class="red"></span>
+        <span class="yellow"></span>
+        <span class="green"></span>
+      </div>
+      <strong>PocketBridge Console</strong>
+    </div>
+
+    <main class="app-shell">
+      <aside class="sidebar">
+        <section class="brand">
+          <div class="brand-mark">PB</div>
+          <div>
+            <h1>PocketBridge</h1>
+            <p>Console v0.1.0 MVP</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-label">Pair and Connect</div>
+          <h2>Pair a new phone</h2>
+          <p class="muted">Open PocketBridge on your phone and scan this code.</p>
+          <button class="secondary-button" id="createPairing">Create QR pairing</button>
+          <a class="secondary-button mobile-link" href="/mobile.html">Open mobile fallback</a>
+          <div class="qr-frame" id="qrFrame">
+            <span>QR code appears here</span>
+          </div>
+          <p class="token" id="pairingToken"></p>
+          <textarea class="payload-box" id="pairingPayload" readonly aria-label="Pairing payload"></textarea>
+          <button class="secondary-button full-width" id="copyPairingPayload" disabled>Copy payload</button>
+        </section>
+
+        <section class="panel">
+          <div class="section-label">PocketKey</div>
+          <div class="trust-card" id="trustCard">
+            <div class="trust-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 11V8a5 5 0 0 1 10 0v3" />
+                <rect x="5" y="11" width="14" height="10" rx="2" />
+                <path d="M12 15v2" />
+              </svg>
+            </div>
+            <div>
+              <strong id="trustTitle">Locked</strong>
+              <p id="trustReason">No phone proximity signal yet</p>
+            </div>
+          </div>
+          <div class="button-row">
+            <button class="secondary-button" id="trustOn">Phone nearby</button>
+            <button class="secondary-button" id="trustOff">Phone away</button>
+            <button class="secondary-button" id="trustLocked">Lock Mac</button>
+          </div>
+        </section>
+
+        <nav class="nav-list" aria-label="PocketBridge sections">
+          <a class="active" href="/">
+            <span class="nav-icon"></span>
+            PocketInbox
+            <span class="count" id="inboxCount">0</span>
+          </a>
+          <a href="/">
+            <span class="nav-icon outline"></span>
+            Outbox
+            <span class="count muted-count" id="outboxCount">0</span>
+          </a>
+          <a href="/">
+            <span class="nav-icon gear"></span>
+            Settings
+          </a>
+        </nav>
+      </aside>
+
+      <section class="inbox-pane">
+        <header class="pane-header">
+          <div>
+            <h2>PocketInbox</h2>
+            <p>Items received from phone, Mac, and built-in captures.</p>
+          </div>
+          <div class="toolbar">
+            <label class="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m16 16 4 4" />
+              </svg>
+              <input id="searchInput" placeholder="Search PocketInbox" />
+            </label>
+            <button class="secondary-button" id="refreshItems">Refresh</button>
+          </div>
+        </header>
+
+        <div class="quick-capture">
+          <div class="capture-stack">
+            <input id="quickText" placeholder="Capture a quick idea from Mac..." />
+            <label class="file-picker">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="m17 8-5-5-5 5" />
+                <path d="M12 3v12" />
+              </svg>
+              <span id="selectedFileName">Choose screenshot or document</span>
+              <input id="fileInput" type="file" />
+            </label>
+          </div>
+          <div class="capture-actions">
+            <button class="primary-button" id="quickUpload">Add to Inbox</button>
+            <button class="secondary-button" id="fileUpload">Upload file</button>
+            <button class="secondary-button" id="screenCapture">Capture screen</button>
+          </div>
+        </div>
+
+        <section class="capture-studio" id="captureStudio" hidden>
+          <div class="capture-studio-head">
+            <div>
+              <div class="section-label">Capture Studio</div>
+              <h3>Annotate and save to PocketInbox</h3>
+            </div>
+            <div class="button-row">
+              <button class="secondary-button" id="clearCapture">Clear ink</button>
+              <button class="secondary-button" id="closeCapture">Close</button>
+              <button class="primary-button" id="saveCapture">Save capture</button>
+            </div>
+          </div>
+          <canvas id="captureCanvas" width="960" height="540"></canvas>
+        </section>
+
+        <div class="table-card">
+          <div class="table-head">
+            <span>Source</span>
+            <span>Kind</span>
+            <span>Title</span>
+            <span>Received</span>
+            <span>Status</span>
+          </div>
+          <div class="item-list" id="itemList"></div>
+          <footer class="table-footer">
+            <span id="itemTotal">0 items total</span>
+            <span id="updatedAt">Waiting for bridge</span>
+          </footer>
+        </div>
+      </section>
+
+      <aside class="inspector">
+        <div class="section-label">Item Details</div>
+        <section class="detail-card" id="detailCard">
+          <h2>Select an item</h2>
+          <p class="muted">Choose an inbox row to review details, send it to phone, or export it to the knowledge base.</p>
+        </section>
+
+        <section class="actions">
+          <button class="primary-button" id="sendPhone" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 2 11 13" />
+              <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+            </svg>
+            Send by Bluetooth
+          </button>
+          <button class="secondary-action" id="exportKnowledge" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3c5 0 8 1.5 8 3.5S17 10 12 10 4 8.5 4 6.5 7 3 12 3Z" />
+              <path d="M4 6.5v11C4 19.5 7 21 12 21s8-1.5 8-3.5v-11" />
+              <path d="M4 12c0 2 3 3.5 8 3.5s8-1.5 8-3.5" />
+            </svg>
+            Export to knowledge base
+          </button>
+        </section>
+
+        <section class="event-panel demo-mode">
+          <div class="event-head">
+            <div class="section-label">Demo Mode</div>
+            <span class="mini-count">Live state</span>
+          </div>
+          <div class="demo-grid">
+            <div>
+              <span>Bound phone</span>
+              <strong id="demoBoundPhone">Not paired</strong>
+            </div>
+            <div>
+              <span>Bluetooth transfer</span>
+              <strong id="demoBluetoothTransfer">Idle</strong>
+            </div>
+            <div>
+              <span>RSSI</span>
+              <strong id="demoRssi">-- dBm</strong>
+            </div>
+            <div>
+              <span>Lock state</span>
+              <strong id="demoLockState">unknown</strong>
+            </div>
+            <div class="wide">
+              <span>Last capture</span>
+              <strong id="demoLastCapture">No capture saved</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="event-panel">
+          <div class="event-head">
+            <div class="section-label">Phone Outbox</div>
+            <span class="mini-count" id="shareTotal">0 shares</span>
+          </div>
+          <div id="shareList" class="share-list"></div>
+        </section>
+
+        <section class="event-panel">
+          <div class="event-head">
+            <div class="section-label">Event Log</div>
+            <button id="clearLog">Clear log</button>
+          </div>
+          <div id="eventLog" class="event-log"></div>
+        </section>
+      </aside>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

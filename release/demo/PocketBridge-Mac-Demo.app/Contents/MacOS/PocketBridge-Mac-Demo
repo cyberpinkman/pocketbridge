@@ -1,0 +1,12 @@
+#!/bin/zsh
+set -euo pipefail
+
+DEMO_DIR="$(cd "$(dirname "$0")/../../../" && pwd)"
+LAUNCHER="$DEMO_DIR/Start-PocketBridge-Mac.command"
+
+if [ ! -f "$LAUNCHER" ]; then
+  osascript -e 'display dialog "PocketBridge demo launcher was not found in release/demo." buttons {"OK"} default button "OK"'
+  exit 1
+fi
+
+open -a Terminal "$LAUNCHER"
