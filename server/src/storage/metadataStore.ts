@@ -11,6 +11,15 @@ const initialMetadata: PocketMetadata = {
 
 let mutationQueue: Promise<void> = Promise.resolve();
 
+function normalizeMetadata(value: unknown): PocketMetadata {
+  const metadata = value && typeof value === "object" ? (value as Partial<PocketMetadata>) : {};
+  return {
+    items: Array.isArray(metadata.items) ? metadata.items : [],
+    pairingSessions: Array.isArray(metadata.pairingSessions) ? metadata.pairingSessions : [],
+    shares: Array.isArray(metadata.shares) ? metadata.shares : []
+  };
+}
+
 export async function ensureStorage(): Promise<void> {
   await fs.mkdir(config.inboxDir, { recursive: true });
 
@@ -24,7 +33,7 @@ export async function ensureStorage(): Promise<void> {
 async function readMetadataFromDisk(): Promise<PocketMetadata> {
   await ensureStorage();
   const raw = await fs.readFile(config.metadataPath, "utf8");
-  return JSON.parse(raw) as PocketMetadata;
+  return normalizeMetadata(JSON.parse(raw));
 }
 
 async function writeMetadataToDisk(metadata: PocketMetadata): Promise<void> {

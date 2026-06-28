@@ -1,6 +1,11 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { addItem, readMetadata, writeMetadata } from "../../dist/server/src/storage/metadataStore.js";
+import {
+  addItem,
+  addPairingSession,
+  readMetadata,
+  writeMetadata
+} from "../../dist/server/src/storage/metadataStore.js";
 
 test("metadata store serializes concurrent item writes without dropping updates", async () => {
   const originalMetadata = await readMetadata();
@@ -29,6 +34,35 @@ test("metadata store serializes concurrent item writes without dropping updates"
       new Set(metadata.items.map((item) => item.id)),
       new Set(items.map((item) => item.id))
     );
+  } finally {
+    await writeMetadata(originalMetadata);
+  }
+});
+
+test("metadata store normalizes legacy files without pairing or share arrays", async () => {
+  const originalMetadata = await readMetadata();
+
+  await writeMetadata({ items: [] });
+
+  try {
+    const metadata = await readMetadata();
+    assert.deepEqual(metadata, {
+      items: [],
+      pairingSessions: [],
+      shares: []
+    });
+
+    await addPairingSession({
+      id: "legacy-pairing-session",
+      token: "123456",
+      createdAt: "2026-06-28T00:00:00.000Z",
+      expiresAt: "2026-06-28T00:10:00.000Z"
+    });
+
+    const updated = await readMetadata();
+    assert.equal(updated.pairingSessions.length, 1);
+    assert.equal(updated.pairingSessions[0].token, "123456");
+    assert.deepEqual(updated.shares, []);
   } finally {
     await writeMetadata(originalMetadata);
   }
