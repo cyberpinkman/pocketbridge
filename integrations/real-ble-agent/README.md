@@ -97,6 +97,13 @@ Mac agent:
 - Localhost HTTP listener on `127.0.0.1:41237`.
 - Chunk queue with per-transfer SHA-256.
 
+Run the current Swift agent skeleton:
+
+```bash
+cd integrations/real-ble-agent/mac-agent
+swift run PocketBridgeBLEAgent
+```
+
 Mobile app:
 
 - Flutter plugin or native bridge for BLE.
