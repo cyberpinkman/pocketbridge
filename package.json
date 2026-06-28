@@ -12,6 +12,7 @@
     "demo:smoke": "npm run build && node --test --test-concurrency=1 server/test/demo-flow.test.mjs",
     "demo:contract": "npm run build && node --test --test-concurrency=1 server/test/upstream-contract-flow.test.mjs",
     "demo:live": "npm run build && node --test --test-concurrency=1 server/test/live-demo-flow.test.mjs",
+    "demo:ble-agent": "npm run build && node dist/server/scripts/ble-agent-demo-check.js",
     "demo:lan-check": "npm run build && node dist/server/scripts/lan-check.js",
     "test": "npm run build && node --test --test-concurrency=1 server/test/*.mjs"
   },

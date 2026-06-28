@@ -172,6 +172,12 @@ Required setup:
 - Mac Bluetooth is enabled and the BLE Agent has Bluetooth permission.
 - Phone Bluetooth is enabled and the Flutter app is installed on a real device.
 - Disable Wi-Fi transfer fallback for this pass.
+- Mac-side handoff rehearsal passes:
+
+```bash
+npm run demo:ble-agent
+```
+
 - Start the bridge with:
 
 ```bash
@@ -182,13 +188,14 @@ Manual steps:
 
 1. Start the macOS BLE Agent and confirm it advertises `PocketBridgeTransferService`.
 2. Pair the phone through the normal PocketBridge QR flow.
-3. Confirm the phone connects to the BLE service and subscribes to downlink notifications.
-4. Save an annotated Capture Studio image on Mac.
-5. Click `Send by Bluetooth`.
-6. Confirm the agent receives `POST /transfers`.
-7. Confirm the phone receives metadata, all chunks, and the final checksum frame.
-8. Move the phone near the Mac and confirm `PocketKeyService` RSSI is trusted.
-9. Move the phone away or disable Bluetooth and confirm away after 10 seconds, locked after 20 seconds.
+3. Open the Flutter app `Shared` tab and tap `Start BLE Demo`.
+4. Confirm the phone connects to the BLE service and subscribes to downlink notifications.
+5. Save an annotated Capture Studio image on Mac.
+6. Click `Send by Bluetooth`.
+7. Confirm the agent receives `POST /transfers`.
+8. Confirm the phone receives metadata, all chunks, and the final checksum frame.
+9. Move the phone near the Mac and confirm `PocketKeyService` RSSI is trusted.
+10. Move the phone away or disable Bluetooth and confirm away after 10 seconds, locked after 20 seconds.
 
 Pass criteria:
 

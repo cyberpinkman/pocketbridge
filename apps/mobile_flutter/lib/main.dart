@@ -13,6 +13,7 @@ import 'package:web_socket_channel/io.dart';
 
 import 'pocket_api.dart';
 import 'pocket_models.dart';
+import 'real_ble_client.dart';
 
 const _pairingPrefsKey = 'pocketbridge.pairing';
 
@@ -54,6 +55,7 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   final TextEditingController _ideaController = TextEditingController();
 
   PocketBridgeApi? _api;
+  final RealBleClient _realBleClient = RealBleClient();
   PairingInfo? _pairing;
   IOWebSocketChannel? _eventChannel;
   StreamSubscription<dynamic>? _eventSubscription;
@@ -73,6 +75,7 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   @override
   void dispose() {
     unawaited(_eventSubscription?.cancel());
+    unawaited(_realBleClient.stopDemo());
     _eventChannel?.sink.close();
     _api?.close();
     _bridgeUrlController.dispose();
@@ -280,36 +283,60 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
     return _SectionCard(
       title: 'Shared to Phone',
       icon: Icons.send_to_mobile,
-      child: _sharedItems.isEmpty
-          ? const _EmptyState(text: 'No shared phone items.')
-          : Column(
-              children: _sharedItems
-                  .map(
-                    (item) => _PocketItemTile(
-                      item: item,
-                      trailing: Wrap(
-                        spacing: 4,
-                        children: [
-                          IconButton(
-                            tooltip: 'Copy download URL',
-                            icon: const Icon(Icons.copy),
-                            onPressed: item.downloadable
-                                ? () => _copyDownloadUrl(item)
-                                : null,
-                          ),
-                          IconButton(
-                            tooltip: 'Download',
-                            icon: const Icon(Icons.download),
-                            onPressed: item.downloadable && !_busy
-                                ? () => _downloadSharedItem(item)
-                                : null,
-                          ),
-                        ],
-                      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _realBleControls(),
+          const SizedBox(height: 12),
+          if (_sharedItems.isEmpty)
+            const _EmptyState(text: 'No shared phone items.')
+          else
+            ..._sharedItems.map(
+              (item) => _PocketItemTile(
+                item: item,
+                trailing: Wrap(
+                  spacing: 4,
+                  children: [
+                    IconButton(
+                      tooltip: 'Copy download URL',
+                      icon: const Icon(Icons.copy),
+                      onPressed: item.downloadable
+                          ? () => _copyDownloadUrl(item)
+                          : null,
                     ),
-                  )
-                  .toList(),
+                    IconButton(
+                      tooltip: 'Download',
+                      icon: const Icon(Icons.download),
+                      onPressed: item.downloadable && !_busy
+                          ? () => _downloadSharedItem(item)
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _realBleControls() {
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: _busy ? null : _startRealBleDemo,
+            icon: const Icon(Icons.bluetooth_connected),
+            label: const Text('Start BLE Demo'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _stopRealBleDemo,
+          icon: const Icon(Icons.bluetooth_disabled),
+          label: const Text('Stop BLE'),
+        ),
+      ],
     );
   }
 
@@ -557,6 +584,20 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
       await file.writeAsBytes(downloaded.bytes, flush: true);
       _status = 'Downloaded ${downloaded.filename}';
       await OpenFilex.open(file.path);
+    });
+  }
+
+  Future<void> _startRealBleDemo() async {
+    await _runBusy(() async {
+      final message = await _realBleClient.startDemo(deviceName: _sourceDeviceName);
+      _status = message;
+    });
+  }
+
+  Future<void> _stopRealBleDemo() async {
+    await _runBusy(() async {
+      final message = await _realBleClient.stopDemo();
+      _status = message;
     });
   }
 

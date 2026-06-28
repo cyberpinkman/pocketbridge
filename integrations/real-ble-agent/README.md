@@ -104,6 +104,14 @@ cd integrations/real-ble-agent/mac-agent
 swift run PocketBridgeBLEAgent
 ```
 
+Run the Mac-side demo rehearsal from the repository root:
+
+```bash
+npm run demo:ble-agent
+```
+
+This command starts `PocketBridgeBLEAgent`, runs the Node bridge in `PB_BLE_TRANSPORT=agent` mode, creates a demo capture item, and verifies that `/api/ble/send/demo-capture` queues through the local BLE Agent instead of the demo transport.
+
 Mobile app:
 
 - Flutter plugin or native bridge for BLE.
