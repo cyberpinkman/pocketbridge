@@ -5,6 +5,7 @@ import multer from "multer";
 import { nanoid } from "nanoid";
 import QRCode from "qrcode";
 import { config } from "../config.js";
+import { queueBleTransfer } from "../integrations/bleTransport.js";
 import { exportItemToMarkdown } from "../integrations/knowledgeBase.js";
 import { getBleStatus, setBleRssi, setBleStatus, type BleStatusValue } from "../integrations/trustState.js";
 import { publicBaseUrl } from "../startupInfo.js";
@@ -318,32 +319,31 @@ apiRouter.post("/ble/send/:itemId", async (request, response, next) => {
       return;
     }
 
+    const share: ShareRequest = {
+      id: nanoid(),
+      itemId: item.id,
+      target: "phone",
+      status: "queued",
+      createdAt: new Date().toISOString()
+    };
+    const transfer = await queueBleTransfer(item, share);
+    if (!transfer.ok) {
+      response.status(transfer.status).json({ error: transfer.error });
+      return;
+    }
+
     const updatedItem = await updateItem({
       ...item,
       sharedToMobile: true,
-      updatedAt: new Date().toISOString()
+      updatedAt: share.createdAt
     });
-    const share: ShareRequest = {
-      id: nanoid(),
-      itemId: updatedItem.id,
-      target: "phone",
-      status: "queued",
-      createdAt: updatedItem.updatedAt ?? new Date().toISOString()
-    };
     await addShare(share);
 
     broadcast({ type: "share.queued", share });
     broadcast({ type: "item.updated", item: updatedItem });
     response.json({
       item: toUpstreamItem(updatedItem),
-      transfer: {
-        id: share.id,
-        itemId: updatedItem.id,
-        channel: "ble",
-        status: "queued",
-        chunkSizeBytes: 512,
-        createdAt: share.createdAt
-      }
+      transfer: transfer.transfer
     });
   } catch (error) {
     next(error);
