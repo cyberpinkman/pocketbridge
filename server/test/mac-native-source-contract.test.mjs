@@ -28,6 +28,7 @@ test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls",
   assert.match(source, /PB_BLE_TRANSPORT/);
   assert.match(source, /PB_BLE_AGENT_URL/);
   assert.match(source, /PB_POCKETKEY_LOCKED_RSSI"\] = "-78"/);
+  assert.match(source, /PB_POCKETKEY_LOCK_ACTION"\] = "demo"/);
   assert.match(source, /\/api\/pairing/);
   assert.match(source, /\/api\/items/);
   assert.match(source, /\/api\/items\/text/);
@@ -38,11 +39,15 @@ test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls",
   assert.match(source, /\/status/);
   assert.match(source, /\/lock/);
   assert.match(source, /QRCodeView/);
+  assert.match(source, /DemoLockShieldController/);
+  assert.match(source, /PocketBridge Locked/);
   assert.match(source, /PocketInbox/);
   assert.match(source, /screencapture/);
   assert.match(source, /Capture Screen/);
   assert.match(source, /Send to Phone/);
   assert.match(source, /Send by Bluetooth/);
+  assert.match(source, /Demo Lock/);
+  assert.match(source, /Demo Unlock/);
   assert.match(source, /Save Knowledge/);
 
   assert.doesNotMatch(source, /load\(URLRequest\(url: serverBaseURL/);

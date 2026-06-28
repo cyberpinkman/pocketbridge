@@ -33,6 +33,8 @@ test("macOS real BLE agent source exposes CoreBluetooth transfer and PocketKey p
   assert.match(source, /PB_POCKETKEY_TRUSTED_RSSI/);
   assert.match(source, /PB_POCKETKEY_AWAY_SECONDS/);
   assert.match(source, /PB_POCKETKEY_LOCK_SECONDS/);
+  assert.match(source, /PB_POCKETKEY_LOCK_ACTION/);
+  assert.match(source, /Demo lock action requested/);
   assert.match(source, /PocketKey thresholds/);
   assert.match(source, /GET \/status/);
   assert.match(source, /lastPocketKeyRssi/);

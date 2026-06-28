@@ -254,13 +254,29 @@ struct DashboardView: View {
 
         Spacer()
 
-        Button(role: .destructive) {
-          Task { await model.lockMacNow() }
+        Toggle(
+          "Demo Lock",
+          isOn: Binding(
+            get: { model.demoLockEnabled },
+            set: { model.setDemoLockEnabled($0) }
+          )
+        )
+        .toggleStyle(.switch)
+
+        Button {
+          model.showDemoLockNow()
         } label: {
-          Label("Lock Mac", systemImage: "lock.fill")
+          Label("Demo Lock", systemImage: "lock.fill")
         }
         .buttonStyle(.bordered)
-        .disabled(model.agentStatus == nil)
+
+        Button {
+          model.dismissDemoLockManually()
+        } label: {
+          Label("Unlock", systemImage: "lock.open")
+        }
+        .buttonStyle(.bordered)
+        .disabled(!model.demoShieldActive)
       }
     }
     .padding(20)
@@ -369,7 +385,8 @@ struct DashboardView: View {
     guard let thresholds = model.agentStatus?.pocketKey.thresholds else {
       return "locked <= -78 dBm"
     }
-    return "trusted >= \(thresholds.trustedRssi), locked <= \(thresholds.lockedRssi)"
+    let action = model.agentStatus?.pocketKey.lockAction ?? "demo"
+    return "trusted >= \(thresholds.trustedRssi), locked <= \(thresholds.lockedRssi), \(action)"
   }
 }
 

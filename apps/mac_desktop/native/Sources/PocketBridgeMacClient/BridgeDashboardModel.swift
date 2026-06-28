@@ -17,12 +17,15 @@ final class BridgeDashboardModel: ObservableObject {
   @Published var quickText = ""
   @Published var lastError: String?
   @Published var logs: [ClientLogEntry] = []
+  @Published var demoLockEnabled = true
+  @Published var demoShieldActive = false
 
   let repoRoot: URL
   private let api = BridgeAPI()
   private var serverProcess: Process?
   private var agentProcess: Process?
   private var refreshTask: Task<Void, Never>?
+  private let demoShieldController = DemoLockShieldController()
 
   init(repoRoot: URL = RepoLocator.findRepoRoot()) {
     self.repoRoot = repoRoot
@@ -82,6 +85,7 @@ final class BridgeDashboardModel: ObservableObject {
       agentProcess.terminate()
       appendLog("BLE Agent", "Terminated client-owned BLE agent")
     }
+    hideDemoShield(reason: "Demo stack stopped")
     serverProcess = nil
     agentProcess = nil
     serverState = .offline
@@ -117,6 +121,7 @@ final class BridgeDashboardModel: ObservableObject {
       } else if agentState != .owned {
         agentState = .external
       }
+      syncDemoShield()
     } catch {
       agentStatus = nil
       if agentProcess == nil {
@@ -275,14 +280,23 @@ final class BridgeDashboardModel: ObservableObject {
     }
   }
 
-  func lockMacNow() async {
-    do {
-      try await api.lockMacNow()
-      appendLog("PocketKey", "Requested macOS lock")
-      await refresh()
-    } catch {
-      lastError = error.localizedDescription
+  func setDemoLockEnabled(_ enabled: Bool) {
+    demoLockEnabled = enabled
+    if !enabled {
+      hideDemoShield(reason: "Demo lock disabled")
+      return
     }
+    syncDemoShield()
+  }
+
+  func showDemoLockNow() {
+    demoLockEnabled = true
+    showDemoShield(reason: "Manual demo lock")
+  }
+
+  func dismissDemoLockManually() {
+    demoLockEnabled = false
+    hideDemoShield(reason: "Manual demo unlock")
   }
 
   func copyPairingPayload() {
@@ -455,6 +469,7 @@ final class BridgeDashboardModel: ObservableObject {
     env["PB_POCKETKEY_LOCKED_RSSI"] = "-78"
     env["PB_POCKETKEY_AWAY_SECONDS"] = "3"
     env["PB_POCKETKEY_LOCK_SECONDS"] = "8"
+    env["PB_POCKETKEY_LOCK_ACTION"] = "demo"
     env["PB_BLE_AWAY_MS"] = "3000"
     env["PB_BLE_LOCK_MS"] = "8000"
     return env
@@ -466,6 +481,7 @@ final class BridgeDashboardModel: ObservableObject {
     env["PB_POCKETKEY_LOCKED_RSSI"] = "-78"
     env["PB_POCKETKEY_AWAY_SECONDS"] = "3"
     env["PB_POCKETKEY_LOCK_SECONDS"] = "8"
+    env["PB_POCKETKEY_LOCK_ACTION"] = "demo"
     return env
   }
 
@@ -481,6 +497,44 @@ final class BridgeDashboardModel: ObservableObject {
     if logs.count > 140 {
       logs.removeFirst(logs.count - 140)
     }
+  }
+
+  private func syncDemoShield() {
+    guard demoLockEnabled else {
+      hideDemoShield(reason: "Demo lock disabled")
+      return
+    }
+
+    switch agentStatus?.pocketKey.state {
+    case "locked":
+      showDemoShield(reason: "PocketKey locked")
+    case "trusted":
+      hideDemoShield(reason: "PocketKey trusted")
+    default:
+      return
+    }
+  }
+
+  private func showDemoShield(reason: String) {
+    guard !demoShieldActive else {
+      return
+    }
+
+    demoShieldController.show(status: agentStatus) { [weak self] in
+      self?.dismissDemoLockManually()
+    }
+    demoShieldActive = true
+    appendLog("PocketKey", "\(reason): demo shield shown")
+  }
+
+  private func hideDemoShield(reason: String) {
+    guard demoShieldActive || demoShieldController.isVisible else {
+      return
+    }
+
+    demoShieldController.hide()
+    demoShieldActive = false
+    appendLog("PocketKey", "\(reason): demo shield hidden")
   }
 }
 

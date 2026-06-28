@@ -32,6 +32,7 @@
     "lockedRssiMax": -78,
     "awayAfterMs": 3000,
     "lockAfterMs": 8000,
+    "lockActionEnv": "PB_POCKETKEY_LOCK_ACTION",
     "macLockCommand": "first available macOS lock command"
   }
 }

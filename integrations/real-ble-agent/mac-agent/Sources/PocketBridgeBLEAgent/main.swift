@@ -28,6 +28,13 @@ private func durationEnv(_ name: String, fallback: TimeInterval) -> TimeInterval
   return parsed
 }
 
+private func stringEnv(_ name: String, fallback: String) -> String {
+  guard let raw = ProcessInfo.processInfo.environment[name]?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+    return fallback
+  }
+  return raw
+}
+
 private struct PocketKeyThresholds {
   let trustedRssi: Int
   let lockedRssi: Int
@@ -134,6 +141,7 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
   private var pocketKeyTimer: DispatchSourceTimer?
   private var lockIssuedForCurrentLoss = false
   private let thresholds = PocketKeyThresholds.liveDemo()
+  private let lockAction = stringEnv("PB_POCKETKEY_LOCK_ACTION", fallback: "system")
 
   func start() throws {
     peripheralManager = CBPeripheralManager(delegate: self, queue: .main)
@@ -143,6 +151,7 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
     agentLog(
       "PocketKey thresholds: trusted>=\(thresholds.trustedRssi)dBm, locked<=\(thresholds.lockedRssi)dBm, awayAfter=\(Int(thresholds.awayAfterSeconds))s, lockAfter=\(Int(thresholds.lockAfterSeconds))s"
     )
+    agentLog("PocketKey lock action: \(lockAction)")
   }
 
   func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
@@ -310,7 +319,7 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
     let lastRssi = lastPocketKeyRssi.map(String.init) ?? "null"
     let age = lastSeenAge.map(String.init) ?? "null"
     return """
-    {"ok":true,"service":"PocketBridgeBLEAgent","pocketKey":{"state":"\(pocketKeyState.rawValue)","lastRssi":\(lastRssi),"lastSeenAgeSeconds":\(age),"thresholds":{"trustedRssi":\(thresholds.trustedRssi),"lockedRssi":\(thresholds.lockedRssi),"awayAfterSeconds":\(Int(thresholds.awayAfterSeconds)),"lockAfterSeconds":\(Int(thresholds.lockAfterSeconds))}},"transfer":{"pending":\(pendingTransfers.count),"subscribers":\(subscribedCentrals.count)}}
+    {"ok":true,"service":"PocketBridgeBLEAgent","pocketKey":{"state":"\(pocketKeyState.rawValue)","lastRssi":\(lastRssi),"lastSeenAgeSeconds":\(age),"lockAction":"\(lockAction)","thresholds":{"trustedRssi":\(thresholds.trustedRssi),"lockedRssi":\(thresholds.lockedRssi),"awayAfterSeconds":\(Int(thresholds.awayAfterSeconds)),"lockAfterSeconds":\(Int(thresholds.lockAfterSeconds))}},"transfer":{"pending":\(pendingTransfers.count),"subscribers":\(subscribedCentrals.count)}}
     """
   }
 
@@ -433,6 +442,11 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
   }
 
   private func lockMac() {
+    guard lockAction == "system" else {
+      agentLog("Demo lock action requested; macOS system lock skipped")
+      return
+    }
+
     for command in macLockCommands {
       guard FileManager.default.isExecutableFile(atPath: command.executable) else {
         agentLog("Skipping unavailable macOS lock command: \(command.label)")

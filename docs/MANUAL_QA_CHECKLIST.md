@@ -123,20 +123,22 @@ Required setup:
 - Mac and phone are on the same network.
 - Phone opens `http://<Mac-LAN-IP>:3000/mobile.html`.
 - Phone is paired with the Mac.
+- Native Mac client is open for the primary demo view.
 
 Manual steps:
 
 1. Keep `Bluetooth RSSI` near `-50 dBm` on the phone page.
-2. Watch Mac Web PocketKey switch to trusted/unlocked.
-3. Drag `Bluetooth RSSI` below `-85 dBm`.
-4. Watch Mac Web PocketKey switch to locked.
+2. Watch the native Mac client PocketKey switch to trusted/unlocked.
+3. Drag `Bluetooth RSSI` below `-78 dBm`.
+4. Watch the native Mac client show the Demo Lock shield.
 5. Move RSSI into the middle range to confirm away state.
+6. Move RSSI back above `-62 dBm` and confirm the Demo Lock shield clears.
 
 Pass criteria:
 
 - `trusted`, `away`, and `locked` states are derived by `/api/ble/rssi`.
 - Strong signal unlocks, weak signal locks.
-- Mac UI updates PocketKey state for each event.
+- Native Mac client updates PocketKey state for each event.
 - WebSocket clients receive BLE status updates.
 
 ## Real BLE Agent
@@ -169,7 +171,8 @@ Manual steps:
 7. Confirm the agent receives `POST /transfers`.
 8. Confirm the phone receives metadata, all chunks, and the final checksum frame.
 9. Move the phone near the Mac and confirm `PocketKeyService` RSSI is trusted.
-10. Move the phone away or disable Bluetooth and confirm away after 10 seconds, locked after 20 seconds.
+10. Move the phone away or disable Bluetooth and confirm away after 3 seconds, locked after 8 seconds.
+11. Move the phone back near the Mac and confirm the native Demo Lock shield clears on `trusted`.
 
 Pass criteria:
 
@@ -177,8 +180,8 @@ Pass criteria:
 - Chunk count and total bytes match on both sides.
 - SHA-256 matches for the received file.
 - PocketInbox item is not marked shared if the BLE Agent is unavailable.
-- Locked transition triggers the configured macOS lock command.
-- Returning to trusted restores PocketBridge app trust state without bypassing macOS password or Touch ID policy.
+- Locked transition triggers the native Demo Lock shield when `PB_POCKETKEY_LOCK_ACTION=demo`.
+- Returning to trusted clears the Demo Lock shield without touching the macOS login session.
 
 ## Third-party Compatibility
 

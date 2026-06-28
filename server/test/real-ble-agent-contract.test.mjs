@@ -32,6 +32,7 @@ test("real BLE agent contract documents the non-simulated transfer and PocketKey
   assert.equal(contract.lock.lockedRssiMax, -78);
   assert.equal(contract.lock.awayAfterMs, 3000);
   assert.equal(contract.lock.lockAfterMs, 8000);
+  assert.equal(contract.lock.lockActionEnv, "PB_POCKETKEY_LOCK_ACTION");
   assert.match(contract.lock.macLockCommand, /first available macOS lock command/);
 
   assert.match(checklist, /Real BLE Agent/);

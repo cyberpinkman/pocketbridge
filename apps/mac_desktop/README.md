@@ -34,7 +34,7 @@ Native client scope:
 - start and monitor the real BLE agent
 - show real PocketKey RSSI, state, and thresholds from the agent `/status` endpoint
 - upload files and quick text captures without opening the browser
-- lock the Mac through the BLE agent from the same client
+- show and clear the reversible full-screen Demo Lock shield from the same client
 
 The native client uses the shared upstream contract:
 

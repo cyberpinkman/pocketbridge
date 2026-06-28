@@ -125,6 +125,7 @@ struct AgentPocketKey: Decodable {
   let state: String
   let lastRssi: Int?
   let lastSeenAgeSeconds: Int?
+  let lockAction: String?
   let thresholds: AgentThresholds
 }
 

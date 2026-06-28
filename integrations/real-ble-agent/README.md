@@ -85,10 +85,11 @@ PB_POCKETKEY_TRUSTED_RSSI=-62 \
 PB_POCKETKEY_LOCKED_RSSI=-78 \
 PB_POCKETKEY_AWAY_SECONDS=3 \
 PB_POCKETKEY_LOCK_SECONDS=8 \
+PB_POCKETKEY_LOCK_ACTION=demo \
 swift run PocketBridgeBLEAgent
 ```
 
-The defaults are tuned for live demos: `trusted >= -62 dBm`, `locked <= -78 dBm`, away after 3 seconds of missing signal, and lock after 8 seconds of missing signal. For production, lower the sensitivity by setting a weaker lock threshold such as `PB_POCKETKEY_LOCKED_RSSI=-85`.
+The defaults are tuned for live demos: `trusted >= -62 dBm`, `locked <= -78 dBm`, away after 3 seconds of missing signal, and lock after 8 seconds of missing signal. Set `PB_POCKETKEY_LOCK_ACTION=demo` when the native Mac client should show the reversible demo lock shield instead of invoking macOS system lock. For production, lower the sensitivity by setting a weaker lock threshold such as `PB_POCKETKEY_LOCKED_RSSI=-85`.
 
 This is a lock action only. PocketBridge must not silently unlock the macOS login screen; returning to `trusted` means the app trust state is restored, while macOS still follows password or Touch ID policy.
 

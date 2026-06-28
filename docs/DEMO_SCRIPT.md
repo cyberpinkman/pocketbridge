@@ -18,6 +18,7 @@ Implemented locally:
 - Native Mac screen capture and direct PocketInbox upload.
 - Bluetooth demo transfer through `Send by Bluetooth`, backed by `POST /api/ble/send/:itemId`.
 - Mac-side real BLE Agent status through the native client and `/status`.
+- Demo Lock shield: PocketKey `locked` covers the Mac client and `trusted` removes the shield without touching the macOS login session.
 - Flutter Android real BLE demo controls: `Start BLE Demo` and `Stop BLE`.
 - Standalone PocketKey states through Bluetooth RSSI: `trusted`, `away`, `locked`.
 - Third-party Snapzy and BLEUnlock bridges remain compatibility paths only; they are not required for the final demo.
@@ -142,7 +143,8 @@ Use the Android app BLE demo first:
 2. Tap `Start BLE Demo` on Android.
 3. Keep the phone close and watch native Mac client show `trusted`.
 4. Move the phone away or shield it until RSSI drops to `-78 dBm` or lower.
-5. Watch the native Mac client show `locked`; macOS receives the lock command from the BLE agent.
+5. Watch the native Mac client show `locked` and cover the screen with the Demo Lock shield.
+6. Move the phone back near the Mac and watch the shield disappear when PocketKey returns to `trusted`.
 
 Expected status flow:
 
@@ -156,7 +158,7 @@ RSSI thresholds:
 - `-78 < rssi < -62`: away
 - `rssi <= -78`: locked
 
-The native Mac client also has `Lock Mac` for manual rehearsal, but the primary demo signal comes from real Android BLE RSSI.
+The native Mac client also has `Demo Lock` and `Unlock` for manual rehearsal, but the primary demo signal comes from real Android BLE RSSI.
 
 Optional BLEUnlock compatibility hook:
 
