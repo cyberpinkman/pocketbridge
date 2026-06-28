@@ -6,6 +6,7 @@ import test from "node:test";
 test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls", async () => {
   const pkg = JSON.parse(await fs.readFile("package.json", "utf8"));
   const swiftPackage = await fs.readFile("apps/mac_desktop/native/Package.swift", "utf8");
+  const launcher = await fs.readFile("PocketBridge.command", "utf8");
   const sourceDir = "apps/mac_desktop/native/Sources/PocketBridgeMacClient";
   const files = await fs.readdir(sourceDir);
   const source = (
@@ -16,6 +17,9 @@ test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls",
 
   assert.equal(pkg.scripts["mac:client"], "swift run --package-path apps/mac_desktop/native PocketBridgeMacClient");
   assert.equal(pkg.scripts["mac:client:build"], "swift build --package-path apps/mac_desktop/native -c release");
+  assert.match(launcher, /apps\/mac_desktop\/native\/\.build\/release\/PocketBridgeMacClient/);
+  assert.match(launcher, /npm run mac:client:build/);
+  assert.match(launcher, /nohup "\$CLIENT_BIN"/);
   assert.match(swiftPackage, /PocketBridgeMacClient/);
   assert.match(source, /@main/);
   assert.match(source, /SwiftUI/);

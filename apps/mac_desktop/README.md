@@ -5,8 +5,16 @@ PocketBridge now has a native SwiftUI Mac client at `apps/mac_desktop/native`.
 Run it from the repository root:
 
 ```bash
+open ./PocketBridge.command
+```
+
+or:
+
+```bash
 npm run mac:client
 ```
+
+For live demo, `~/Desktop/PocketBridge.command` points to the same launcher.
 
 Build the release binary:
 

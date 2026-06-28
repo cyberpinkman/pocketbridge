@@ -19,8 +19,16 @@ The canonical Node bridge now runs from the repository root. The older `server/`
 Use the native Mac client for the integrated demo:
 
 ```bash
+open ./PocketBridge.command
+```
+
+or:
+
+```bash
 npm run mac:client
 ```
+
+Run those from the repository root. A Desktop launcher is also safe for live demo: `~/Desktop/PocketBridge.command`.
 
 The client starts or detects the local Node bridge and the real BLE agent, shows the pairing QR code, PocketInbox, native screen capture, file upload, phone handoff, knowledge export, PocketKey RSSI, and lock controls in one window.
 
