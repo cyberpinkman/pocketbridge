@@ -43,4 +43,5 @@ test("Flutter mobile source targets the upstream PocketBridge API contract", asy
   assert.match(pubspec, /shared_preferences:/);
   assert.match(pubspec, /mime:/);
   assert.match(pubspec, /http_parser:/);
+  assert.match(pubspec, /sdk: ">=3\.11\.0 <4\.0\.0"/);
 });

@@ -19,8 +19,14 @@ export function getEnvironmentStatus(runner: CommandRunner = runCommand): Enviro
   return {
     node: runner("node", ["--version"]),
     npm: runner("npm", ["--version"]),
-    flutter: runner("flutter", ["--version"]),
-    dart: runner("dart", ["--version"])
+    flutter: firstAvailable(runner, [
+      ["flutter", ["--version"]],
+      ["/Users/zerone/flutter/bin/flutter", ["--version"]]
+    ]),
+    dart: firstAvailable(runner, [
+      ["dart", ["--version"]],
+      ["/Users/zerone/flutter/bin/dart", ["--version"]]
+    ])
   };
 }
 
@@ -51,6 +57,20 @@ function formatLine(label: string, status: CommandStatus): string {
 
 function firstLine(value: string): string {
   return value.split(/\r?\n/).find(Boolean) ?? "";
+}
+
+function firstAvailable(runner: CommandRunner, commands: [string, string[]][]): CommandStatus {
+  let lastStatus: CommandStatus = { ok: false, output: "" };
+
+  for (const [command, args] of commands) {
+    const status = runner(command, args);
+    if (status.ok) {
+      return status;
+    }
+    lastStatus = status;
+  }
+
+  return lastStatus;
 }
 
 function runCommand(command: string, args: string[]): CommandStatus {
