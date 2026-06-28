@@ -13,7 +13,7 @@ test("Mac Web UI targets the upstream PocketBridge API contract", async () => {
   assert.match(app, /\/api\/items/);
   assert.match(app, /\/api\/items\/text/);
   assert.match(app, /\/api\/items\/upload/);
-  assert.match(app, /\/api\/items\/\$\{selected\.id\}\/share-to-mobile/);
+  assert.match(app, /\/api\/ble\/send\/\$\{selected\.id\}/);
   assert.match(app, /\/api\/knowledge\/\$\{selected\.id\}/);
   assert.match(app, /\/api\/ble\/status/);
   assert.match(app, /\/ws\?pairCode=/);
@@ -32,6 +32,7 @@ test("Mac Web UI targets the upstream PocketBridge API contract", async () => {
   assert.match(app, /PocketBridge Capture/);
 
   assert.doesNotMatch(html, /Import Snapzy folder/);
+  assert.doesNotMatch(app, /\/api\/items\/\$\{selected\.id\}\/share-to-mobile/);
   assert.doesNotMatch(app, /api\("\/pairing\/session/);
   assert.doesNotMatch(app, /api\("\/upload/);
   assert.doesNotMatch(app, /api\("\/share/);

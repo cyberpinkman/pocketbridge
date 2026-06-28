@@ -9,6 +9,8 @@ test("demo script documents the live rehearsal and fallback paths", async () => 
   assert.match(script, /http:\/\/<Mac-LAN-IP>:3000\/mobile\.html/);
   assert.match(script, /Capture Studio/);
   assert.match(script, /getDisplayMedia/);
+  assert.match(script, /Send by Bluetooth/);
+  assert.match(script, /Bluetooth RSSI/);
   assert.match(script, /PocketKey/);
   assert.match(script, /trusted -> away -> locked/);
   assert.match(script, /Flutter/);

@@ -20,7 +20,8 @@ Implemented and verified locally:
 - Read-only demo API views: `GET /api/inbox` and `GET /api/search?q=...`.
 - Knowledge export into `data/obsidian/PocketBridge/`.
 - Built-in Capture Studio using browser `getDisplayMedia`, canvas annotation, and direct PocketInbox upload.
-- Standalone PocketKey states through the paired phone page and `/api/ble/status`: `trusted`, `away`, `locked`.
+- Bluetooth demo transfer through `Send by Bluetooth`, backed by `/api/ble/send/:itemId`.
+- Standalone PocketKey states through Bluetooth RSSI and `/api/ble/rssi`: `trusted`, `away`, `locked`.
 - Optional BLE Capsule text bridge: `integrations/ble-capsule/capsule-text.sh`.
 - Mobile browser fallback at `/mobile.html` for the current machine when Flutter/Dart are unavailable.
 - Third-party Snapzy and BLEUnlock bridges remain compatibility paths only; they are not required for the final demo.
@@ -47,6 +48,7 @@ This checks the core path in one command:
 - Mac-to-phone share and download
 - Markdown knowledge export
 - built-in Capture Studio screenshot and annotation flow
+- Bluetooth send from Mac to bound phone
 - PocketKey status flow: `trusted -> away -> locked`
 
 If this fails, use the failure output as the pre-demo fix list.
@@ -147,21 +149,24 @@ Expected signs:
 
 This replaces the Snapzy dependency for the final demo. The Snapzy watch-folder bridge can still be used as a compatibility adapter after the standalone demo is green.
 
-## 6. Mac To Phone
+## 6. Bluetooth Send To Bound Phone
 
-Select a file-backed item in PocketInbox.
+Select the annotated capture item in PocketInbox.
 
-Click `Send to phone`.
+Click `Send by Bluetooth`.
 
 On the phone fallback or Flutter app:
 
 1. Refresh shared items.
-2. Download the shared file.
+2. Confirm the annotated capture appears in the shared list.
+3. Download the shared file.
 
 Expected signs:
 
 - Phone Outbox count increases on Mac.
+- Event Log shows a Bluetooth queued transfer.
 - The phone sees the item through `GET /api/items?sharedToMobile=true`.
+- The API path used is `POST /api/ble/send/<itemId>`.
 - File download uses `GET /api/items/:id/download`.
 
 ## 7. PocketKey
@@ -170,12 +175,12 @@ Use the paired phone page first:
 
 1. Open `http://<Mac-LAN-IP>:3000/mobile.html` on the phone.
 2. Pair it with the Mac.
-3. Tap `Trust this phone`.
-4. Watch the Mac PocketKey panel switch to trusted.
-5. Tap `Mark phone away`.
-6. Click `Lock Mac` in the Mac UI for the locked state.
+3. Keep `Bluetooth RSSI` near `-50 dBm`.
+4. Watch the Mac PocketKey panel switch to trusted/unlocked.
+5. Drag `Bluetooth RSSI` below `-85 dBm`.
+6. Watch the Mac PocketKey panel switch to locked.
 
-The Mac UI also has manual PocketKey buttons for rehearsal, but the primary demo signal comes from PocketBridge Mobile itself.
+The Mac UI also has manual PocketKey buttons for rehearsal, but the primary demo signal comes from PocketBridge Mobile RSSI.
 
 Expected status flow:
 
@@ -184,6 +189,12 @@ trusted -> away -> locked
 ```
 
 This demonstrates PocketBridge's standalone phone-key loop without requiring BLEUnlock during the demo.
+
+RSSI thresholds:
+
+- `rssi >= -65`: trusted / unlocked
+- `-85 < rssi < -65`: away
+- `rssi <= -85`: locked
 
 Optional BLEUnlock compatibility hook:
 

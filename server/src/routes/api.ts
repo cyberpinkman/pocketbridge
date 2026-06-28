@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import QRCode from "qrcode";
 import { config } from "../config.js";
 import { exportItemToMarkdown } from "../integrations/knowledgeBase.js";
-import { getBleStatus, setBleStatus, type BleStatusValue } from "../integrations/trustState.js";
+import { getBleStatus, setBleRssi, setBleStatus, type BleStatusValue } from "../integrations/trustState.js";
 import { publicBaseUrl } from "../startupInfo.js";
 import { addItem, addPairingSession, addShare, readMetadata, updateItem } from "../storage/metadataStore.js";
 import type { PairingSession, PocketItem, PocketItemKind, PocketItemSource, ShareRequest } from "../types.js";
@@ -301,6 +301,55 @@ apiRouter.post("/items/:itemId/share-to-mobile", async (request, response, next)
   }
 });
 
+apiRouter.post("/ble/send/:itemId", async (request, response, next) => {
+  try {
+    const auth = await requirePairCode(request);
+    if (!auth.ok) {
+      response.status(401).json(unauthorizedError());
+      return;
+    }
+
+    const metadata = await readMetadata();
+    const item = metadata.items.find((candidate) => candidate.id === request.params.itemId);
+    if (!item) {
+      response.status(404).json({
+        error: { code: "NOT_FOUND", message: "item not found" }
+      });
+      return;
+    }
+
+    const updatedItem = await updateItem({
+      ...item,
+      sharedToMobile: true,
+      updatedAt: new Date().toISOString()
+    });
+    const share: ShareRequest = {
+      id: nanoid(),
+      itemId: updatedItem.id,
+      target: "phone",
+      status: "queued",
+      createdAt: updatedItem.updatedAt ?? new Date().toISOString()
+    };
+    await addShare(share);
+
+    broadcast({ type: "share.queued", share });
+    broadcast({ type: "item.updated", item: updatedItem });
+    response.json({
+      item: toUpstreamItem(updatedItem),
+      transfer: {
+        id: share.id,
+        itemId: updatedItem.id,
+        channel: "ble",
+        status: "queued",
+        chunkSizeBytes: 512,
+        createdAt: share.createdAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 apiRouter.get("/items/:itemId/download", async (request, response, next) => {
   try {
     const auth = await requirePairCode(request);
@@ -423,6 +472,38 @@ apiRouter.post("/ble/status", async (request, response, next) => {
       type: "trust.changed",
       trusted: bleStatus.status === "trusted",
       reason: `BLE status: ${bleStatus.status}`
+    });
+    response.json(bleStatus);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/ble/rssi", async (request, response, next) => {
+  try {
+    const auth = await requirePairCode(request);
+    if (!auth.ok) {
+      response.status(401).json(unauthorizedError());
+      return;
+    }
+
+    const rssi = request.body.rssi;
+    if (typeof rssi !== "number" || !Number.isFinite(rssi)) {
+      response.status(400).json({
+        error: { code: "BAD_REQUEST", message: "rssi must be a number" }
+      });
+      return;
+    }
+
+    const deviceName = typeof request.body.deviceName === "string" && request.body.deviceName.trim()
+      ? request.body.deviceName.trim()
+      : "PocketBridge Mobile";
+    const bleStatus = setBleRssi(deviceName, rssi);
+
+    broadcast({
+      type: "trust.changed",
+      trusted: bleStatus.status === "trusted",
+      reason: `BLE RSSI ${rssi}: ${bleStatus.status}`
     });
     response.json(bleStatus);
   } catch (error) {

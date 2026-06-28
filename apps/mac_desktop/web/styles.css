@@ -762,6 +762,28 @@ svg {
   margin-top: 12px;
 }
 
+.signal-control {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.signal-control span {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.signal-control input {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.signal-control strong {
+  color: var(--accent-dark);
+}
+
 .mobile-stack input,
 .mobile-stack textarea {
   width: 100%;

@@ -6,25 +6,20 @@ import test from "node:test";
 import WebSocket from "ws";
 import { createApp } from "../../dist/server/src/app.js";
 import { config } from "../../dist/server/src/config.js";
-import { startSnapzyWatch } from "../../dist/server/src/integrations/snapzyWatch.js";
 import { readMetadata, writeMetadata } from "../../dist/server/src/storage/metadataStore.js";
 import { attachWebsocket } from "../../dist/server/src/websocket/hub.js";
 
-test("live demo rehearsal covers phone, Mac, Snapzy, knowledge, and PocketKey", async () => {
+test("live demo rehearsal covers annotated capture, BLE send, and RSSI PocketKey", async () => {
   const originalMetadata = await readMetadata();
   const vaultDir = path.resolve("tmp", "live-demo-vault");
-  const snapzyWatchDir = path.resolve("tmp", "live-demo-snapzy");
   const importedPaths = [];
   let client;
 
   await fs.rm(vaultDir, { recursive: true, force: true });
-  await fs.rm(snapzyWatchDir, { recursive: true, force: true });
-  await fs.mkdir(snapzyWatchDir, { recursive: true });
   await writeMetadata({ items: [], pairingSessions: [], shares: [] });
 
   const server = http.createServer(createApp());
   const websocketServer = attachWebsocket(server);
-  const watcher = startSnapzyWatch({ watchDir: snapzyWatchDir, debounceMs: 100 });
 
   try {
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -74,14 +69,6 @@ test("live demo rehearsal covers phone, Mac, Snapzy, knowledge, and PocketKey", 
       importedPaths.push(phoneFileMetadata.filePath);
     }
 
-    const shared = await postJson(`${baseUrl}/api/items/${phoneFile.item.id}/share-to-mobile`, {
-      sharedToMobile: true
-    }, authHeaders);
-    assert.equal(shared.item.sharedToMobile, true);
-    await waitForMessage(received, "item.shared");
-    const sharedItems = await getJson(`${baseUrl}/api/items?sharedToMobile=true`, authHeaders);
-    assert.equal(sharedItems.items.some((item) => item.id === phoneFile.item.id), true);
-
     const downloadResponse = await fetch(`${baseUrl}${phoneFile.item.downloadUrl}`, {
       headers: authHeaders
     });
@@ -96,29 +83,54 @@ test("live demo rehearsal covers phone, Mac, Snapzy, knowledge, and PocketKey", 
     assert.equal(exported.item.status, "saved_to_knowledge");
     assert.match(await fs.readFile(exported.item.knowledgePath, "utf8"), /Live demo rehearsal/);
 
-    const snapzySource = path.join(snapzyWatchDir, "snapzy-live.txt");
-    await fs.writeFile(snapzySource, "snapzy live capture");
-    const snapzyItem = await waitForMetadataItem("snapzy-live.txt");
-    importedPaths.push(snapzyItem.filePath);
-    assert.equal(snapzyItem.source, "snapzy");
-    assert.equal(await fs.readFile(snapzyItem.filePath, "utf8"), "snapzy live capture");
-
-    for (const status of ["trusted", "away", "locked"]) {
-      const ble = await postJson(`${baseUrl}/api/ble/status`, {
-        status,
-        deviceName: "Live Demo Phone",
-        rssi: status === "trusted" ? -49 : status === "away" ? -82 : -96
-      }, authHeaders);
-      assert.equal(ble.status, status);
+    const captureForm = new FormData();
+    captureForm.set("origin", "mac");
+    captureForm.set("sourceDevice", "PocketBridge Capture");
+    captureForm.set("title", "Annotated Capture");
+    captureForm.set("tags", JSON.stringify(["capture", "annotation"]));
+    captureForm.set("file", new Blob(["annotated capture png"], { type: "image/png" }), "annotated-capture.png");
+    const captureResponse = await fetch(`${baseUrl}/api/items/upload`, {
+      method: "POST",
+      headers: authHeaders,
+      body: captureForm
+    });
+    assert.equal(captureResponse.status, 201);
+    const capture = await captureResponse.json();
+    assert.equal(capture.item.kind, "image");
+    assert.equal(capture.item.sourceDevice, "PocketBridge Capture");
+    const metadataAfterCapture = await readMetadata();
+    const captureMetadata = metadataAfterCapture.items.find((item) => item.id === capture.item.id);
+    if (captureMetadata?.filePath) {
+      importedPaths.push(captureMetadata.filePath);
     }
+
+    const bleSend = await postJson(`${baseUrl}/api/ble/send/${capture.item.id}`, {}, authHeaders);
+    assert.equal(bleSend.transfer.channel, "ble");
+    assert.equal(bleSend.transfer.status, "queued");
+    assert.equal(bleSend.item.sharedToMobile, true);
+    await waitForMessage(received, "item.shared");
+    const sharedItems = await getJson(`${baseUrl}/api/items?sharedToMobile=true`, authHeaders);
+    assert.equal(sharedItems.items.some((item) => item.id === capture.item.id), true);
+
+    const unlocked = await postJson(`${baseUrl}/api/ble/rssi`, {
+      deviceName: "Live Demo Phone",
+      rssi: -49
+    }, authHeaders);
+    assert.equal(unlocked.status, "trusted");
+    assert.equal(unlocked.lockState, "unlocked");
+
+    const locked = await postJson(`${baseUrl}/api/ble/rssi`, {
+      deviceName: "Live Demo Phone",
+      rssi: -92
+    }, authHeaders);
+    assert.equal(locked.status, "locked");
+    assert.equal(locked.lockState, "locked");
   } finally {
     client?.close();
-    watcher.close();
     await new Promise((resolve) => websocketServer.close(resolve));
     await new Promise((resolve) => server.close(resolve));
     await writeMetadata(originalMetadata);
     await fs.rm(vaultDir, { recursive: true, force: true });
-    await fs.rm(snapzyWatchDir, { recursive: true, force: true });
     await Promise.all(importedPaths.map((filePath) => fs.rm(filePath, { force: true })));
   }
 });

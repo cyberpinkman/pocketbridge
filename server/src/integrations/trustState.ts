@@ -10,6 +10,7 @@ export interface BleStatus {
   status: BleStatusValue;
   deviceName: string;
   rssi?: number;
+  lockState?: "unlocked" | "away" | "locked";
   updatedAt: string;
 }
 
@@ -52,6 +53,7 @@ export function setBleStatus(
     status,
     deviceName,
     rssi,
+    lockState: lockStateFromStatus(status),
     updatedAt
   };
   currentTrustState = {
@@ -60,4 +62,28 @@ export function setBleStatus(
     updatedAt
   };
   return currentBleStatus;
+}
+
+export function setBleRssi(deviceName: string, rssi: number): BleStatus {
+  return setBleStatus(statusFromRssi(rssi), deviceName, rssi);
+}
+
+function statusFromRssi(rssi: number): BleStatusValue {
+  if (rssi >= -65) {
+    return "trusted";
+  }
+  if (rssi <= -85) {
+    return "locked";
+  }
+  return "away";
+}
+
+function lockStateFromStatus(status: BleStatusValue): "unlocked" | "away" | "locked" {
+  if (status === "trusted") {
+    return "unlocked";
+  }
+  if (status === "locked") {
+    return "locked";
+  }
+  return "away";
 }

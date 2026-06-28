@@ -10,7 +10,9 @@ test("manual QA checklist covers the remaining device-bound validation", async (
   assert.match(checklist, /Flutter Workstation/);
   assert.match(checklist, /Physical Phone LAN And QR/);
   assert.match(checklist, /Built-in Capture Studio/);
+  assert.match(checklist, /Bluetooth Send To Bound Phone/);
   assert.match(checklist, /Standalone PocketKey/);
+  assert.match(checklist, /RSSI/);
   assert.match(checklist, /Third-party Compatibility/);
   assert.match(checklist, /BLE Capsule Text Proof/);
   assert.match(checklist, /Acceptance Record/);

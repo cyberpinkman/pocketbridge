@@ -76,7 +76,7 @@ Phone steps:
 4. Confirm the app stores `serverBaseUrl`, `wsUrl`, and `pairCode`.
 5. Upload a text note from phone to Mac.
 6. Upload one image or document from phone to Mac.
-7. Select a Mac item and send it to phone.
+7. Select a Mac item and send it to phone over Bluetooth.
 8. Download the shared item on phone.
 
 Pass criteria:
@@ -120,6 +120,28 @@ Evidence to save:
 - PocketInbox item id.
 - Generated Markdown path.
 
+## Bluetooth Send To Bound Phone
+
+Required setup:
+
+- Mac and phone are paired through the PocketBridge QR flow.
+- An annotated capture exists in PocketInbox.
+
+Manual steps:
+
+1. Select the annotated capture.
+2. Click `Send by Bluetooth`.
+3. Open or refresh `http://<Mac-LAN-IP>:3000/mobile.html` on the phone.
+4. Confirm the capture appears in the shared list.
+5. Download the capture on the phone.
+
+Pass criteria:
+
+- Mac calls `POST /api/ble/send/<itemId>`.
+- Response includes `channel: "ble"` and `status: "queued"`.
+- Item becomes `sharedToMobile=true`.
+- Phone can download the same annotated capture.
+
 ## Standalone PocketKey
 
 Required setup:
@@ -130,15 +152,16 @@ Required setup:
 
 Manual steps:
 
-1. Tap `Trust this phone` on the phone page.
-2. Watch Mac Web PocketKey switch to trusted.
-3. Tap `Mark phone away` on the phone page.
-4. Watch Mac Web PocketKey switch away/locked.
-5. Click `Lock Mac` in the Mac UI to demonstrate the locked state.
+1. Keep `Bluetooth RSSI` near `-50 dBm` on the phone page.
+2. Watch Mac Web PocketKey switch to trusted/unlocked.
+3. Drag `Bluetooth RSSI` below `-85 dBm`.
+4. Watch Mac Web PocketKey switch to locked.
+5. Move RSSI into the middle range to confirm away state.
 
 Pass criteria:
 
-- `trusted`, `away`, and `locked` states are accepted by `/api/ble/status`.
+- `trusted`, `away`, and `locked` states are derived by `/api/ble/rssi`.
+- Strong signal unlocks, weak signal locks.
 - Mac UI updates PocketKey state for each event.
 - WebSocket clients receive BLE status updates.
 
@@ -173,6 +196,7 @@ Pass criteria:
 | Flutter workstation |  |  |  |  |
 | Physical phone LAN/QR |  |  |  |  |
 | Built-in Capture Studio |  |  |  |  |
+| Bluetooth send to bound phone |  |  |  |  |
 | Standalone PocketKey |  |  |  |  |
 | Third-party compatibility |  |  |  |  |
 | BLE Capsule text proof |  |  |  |  |
@@ -184,5 +208,6 @@ Ready to mark MVP demo complete when:
 - Automated baseline is green.
 - Flutter or browser fallback path is demonstrated on a physical phone.
 - Built-in Capture Studio creates one annotated capture without opening Snapzy.
-- Standalone PocketKey demonstrates trusted, away, and locked states without opening BLEUnlock.
+- Bluetooth send delivers that annotated capture to the bound phone.
+- Standalone PocketKey demonstrates RSSI-based unlock, away, and lock without opening BLEUnlock.
 - Knowledge export produces an Obsidian-readable Markdown note with expected content and asset links.

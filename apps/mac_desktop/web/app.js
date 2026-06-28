@@ -326,12 +326,8 @@ async function sendSelectedToPhone() {
     return;
   }
 
-  await api(`/api/items/${selected.id}/share-to-mobile`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ sharedToMobile: true })
-  });
-  logEvent(`Queued ${selected.title} for phone`);
+  const result = await api(`/api/ble/send/${selected.id}`, { method: "POST" });
+  logEvent(`Bluetooth ${result.transfer.status}: ${selected.title}`);
   await refreshAll();
 }
 
