@@ -14,7 +14,11 @@ test("real BLE agent contract documents the non-simulated transfer and PocketKey
   assert.match(readme, /PocketBridgeTransferService/);
   assert.match(readme, /PocketKeyService/);
   assert.match(readme, /SHA-256/);
-  assert.match(readme, /CGSession -suspend/);
+  assert.match(readme, /PB_POCKETKEY_TRUSTED_RSSI/);
+  assert.match(readme, /PB_POCKETKEY_LOCKED_RSSI/);
+  assert.match(readme, /PB_POCKETKEY_AWAY_SECONDS/);
+  assert.match(readme, /PB_POCKETKEY_LOCK_SECONDS/);
+  assert.match(readme, /first available macOS lock command/);
 
   assert.equal(contract.transportMode, "agent");
   assert.equal(contract.http.transferEndpoint, "/transfers");
@@ -23,8 +27,11 @@ test("real BLE agent contract documents the non-simulated transfer and PocketKey
   assert.match(contract.ble.transferService.uuid, /^[0-9a-f-]{36}$/i);
   assert.match(contract.ble.pocketKeyService.uuid, /^[0-9a-f-]{36}$/i);
   assert.equal(contract.transfer.chunkSizeBytes, 512);
-  assert.equal(contract.lock.awayAfterMs, 10000);
-  assert.equal(contract.lock.lockAfterMs, 20000);
+  assert.equal(contract.lock.trustedRssiMin, -62);
+  assert.equal(contract.lock.lockedRssiMax, -78);
+  assert.equal(contract.lock.awayAfterMs, 3000);
+  assert.equal(contract.lock.lockAfterMs, 8000);
+  assert.match(contract.lock.macLockCommand, /first available macOS lock command/);
 
   assert.match(checklist, /Real BLE Agent/);
   assert.match(checklist, /Disable Wi-Fi transfer fallback/);

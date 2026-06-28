@@ -77,13 +77,18 @@ If the agent is down, PocketBridge returns `502 BLE_AGENT_UNAVAILABLE` instead o
 - Phone advertises the service while paired.
 - Mac scans it with CoreBluetooth and records RSSI.
 - Strong RSSI keeps the Mac-side PocketKey trusted.
-- Missing RSSI for 10 seconds moves to `away`.
-- Missing RSSI for 20 seconds moves to `locked`.
-- On locked transition, the macOS agent may call:
+- Weak RSSI or missing signal moves to `away` and then `locked`.
+- On locked transition, the macOS agent calls the first available macOS lock command.
 
 ```bash
-/System/Library/CoreServices/Menu\ Extras/User.menu/Contents/Resources/CGSession -suspend
+PB_POCKETKEY_TRUSTED_RSSI=-62 \
+PB_POCKETKEY_LOCKED_RSSI=-78 \
+PB_POCKETKEY_AWAY_SECONDS=3 \
+PB_POCKETKEY_LOCK_SECONDS=8 \
+swift run PocketBridgeBLEAgent
 ```
+
+The defaults are tuned for live demos: `trusted >= -62 dBm`, `locked <= -78 dBm`, away after 3 seconds of missing signal, and lock after 8 seconds of missing signal. For production, lower the sensitivity by setting a weaker lock threshold such as `PB_POCKETKEY_LOCKED_RSSI=-85`.
 
 This is a lock action only. PocketBridge must not silently unlock the macOS login screen; returning to `trusted` means the app trust state is restored, while macOS still follows password or Touch ID policy.
 

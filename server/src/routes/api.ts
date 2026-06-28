@@ -5,7 +5,7 @@ import multer from "multer";
 import { nanoid } from "nanoid";
 import QRCode from "qrcode";
 import { config } from "../config.js";
-import { queueBleTransfer } from "../integrations/bleTransport.js";
+import { bleAgentModeEnabled, queueBleTransfer, requestMacLock } from "../integrations/bleTransport.js";
 import { exportItemToMarkdown } from "../integrations/knowledgeBase.js";
 import { getBleStatus, setBleRssi, setBleStatus, type BleStatusValue } from "../integrations/trustState.js";
 import { publicBaseUrl } from "../startupInfo.js";
@@ -572,13 +572,21 @@ apiRouter.post("/ble/status", async (request, response, next) => {
       : "PocketBridge Mobile";
     const rssi = typeof request.body.rssi === "number" ? request.body.rssi : undefined;
     const bleStatus = setBleStatus(status, deviceName, rssi);
+    const macLock = status === "locked" && bleAgentModeEnabled()
+      ? await requestMacLock()
+      : undefined;
+
+    if (macLock && !macLock.ok) {
+      response.status(macLock.status).json({ error: macLock.error, bleStatus });
+      return;
+    }
 
     broadcast({
       type: "trust.changed",
       trusted: bleStatus.status === "trusted",
       reason: `BLE status: ${bleStatus.status}`
     });
-    response.json(bleStatus);
+    response.json(macLock ? { ...bleStatus, macLock: { status: "requested" } } : bleStatus);
   } catch (error) {
     next(error);
   }
@@ -604,13 +612,21 @@ apiRouter.post("/ble/rssi", async (request, response, next) => {
       ? request.body.deviceName.trim()
       : "PocketBridge Mobile";
     const bleStatus = setBleRssi(deviceName, rssi);
+    const macLock = bleStatus.status === "locked" && bleAgentModeEnabled()
+      ? await requestMacLock()
+      : undefined;
+
+    if (macLock && !macLock.ok) {
+      response.status(macLock.status).json({ error: macLock.error, bleStatus });
+      return;
+    }
 
     broadcast({
       type: "trust.changed",
       trusted: bleStatus.status === "trusted",
       reason: `BLE RSSI ${rssi}: ${bleStatus.status}`
     });
-    response.json(bleStatus);
+    response.json(macLock ? { ...bleStatus, macLock: { status: "requested" } } : bleStatus);
   } catch (error) {
     next(error);
   }

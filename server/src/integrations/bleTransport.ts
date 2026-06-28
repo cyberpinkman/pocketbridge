@@ -13,8 +13,16 @@ export type QueueBleTransferResult =
   | { ok: true; transfer: BleTransferEnvelope }
   | { ok: false; status: number; error: { code: string; message: string } };
 
+export type RequestMacLockResult =
+  | { ok: true }
+  | { ok: false; status: number; error: { code: string; message: string } };
+
+export function bleAgentModeEnabled(): boolean {
+  return (process.env.PB_BLE_TRANSPORT ?? "demo") === "agent";
+}
+
 export async function queueBleTransfer(item: PocketItem, share: ShareRequest): Promise<QueueBleTransferResult> {
-  if ((process.env.PB_BLE_TRANSPORT ?? "demo") !== "agent") {
+  if (!bleAgentModeEnabled()) {
     return {
       ok: true,
       transfer: {
@@ -61,6 +69,24 @@ export async function queueBleTransfer(item: PocketItem, share: ShareRequest): P
   }
 }
 
+export async function requestMacLock(): Promise<RequestMacLockResult> {
+  if (!bleAgentModeEnabled()) {
+    return { ok: true };
+  }
+
+  const agentUrl = process.env.PB_BLE_AGENT_URL ?? "http://127.0.0.1:41237";
+  const endpoint = new URL("/lock", agentUrl);
+  try {
+    const response = await fetch(endpoint, { method: "POST" });
+    if (!response.ok) {
+      return bleAgentLockUnavailable(`BLE agent rejected lock with HTTP ${response.status}`);
+    }
+    return { ok: true };
+  } catch {
+    return bleAgentLockUnavailable(`BLE agent is unavailable at ${agentUrl}`);
+  }
+}
+
 function toAgentItem(item: PocketItem) {
   return {
     id: item.id,
@@ -77,6 +103,17 @@ function toAgentItem(item: PocketItem) {
 }
 
 function bleAgentUnavailable(message: string): QueueBleTransferResult {
+  return {
+    ok: false,
+    status: 502,
+    error: {
+      code: "BLE_AGENT_UNAVAILABLE",
+      message
+    }
+  };
+}
+
+function bleAgentLockUnavailable(message: string): RequestMacLockResult {
   return {
     ok: false,
     status: 502,

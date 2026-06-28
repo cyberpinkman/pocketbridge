@@ -9,7 +9,44 @@ private let uplinkWriteUUID = CBUUID(string: "6f8f8e13-07bb-4f0c-b9a9-54f5af7d9c
 private let pocketKeyServiceUUID = CBUUID(string: "6f8f8e21-07bb-4f0c-b9a9-54f5af7d9c31")
 private let chunkSizeBytes = 512
 private let agentPort: NWEndpoint.Port = 41237
-private let lockCommand = "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession"
+
+private func agentLog(_ message: String) {
+  FileHandle.standardOutput.write(Data((message + "\n").utf8))
+}
+
+private func intEnv(_ name: String, fallback: Int) -> Int {
+  guard let raw = ProcessInfo.processInfo.environment[name], let parsed = Int(raw) else {
+    return fallback
+  }
+  return parsed
+}
+
+private func durationEnv(_ name: String, fallback: TimeInterval) -> TimeInterval {
+  guard let raw = ProcessInfo.processInfo.environment[name], let parsed = TimeInterval(raw), parsed > 0 else {
+    return fallback
+  }
+  return parsed
+}
+
+private struct PocketKeyThresholds {
+  let trustedRssi: Int
+  let lockedRssi: Int
+  let awayAfterSeconds: TimeInterval
+  let lockAfterSeconds: TimeInterval
+
+  static func liveDemo() -> PocketKeyThresholds {
+    let lockedRssi = intEnv("PB_POCKETKEY_LOCKED_RSSI", fallback: -78)
+    let trustedRssi = intEnv("PB_POCKETKEY_TRUSTED_RSSI", fallback: -62)
+    let lockAfterSeconds = durationEnv("PB_POCKETKEY_LOCK_SECONDS", fallback: 8)
+    let awayAfterSeconds = min(durationEnv("PB_POCKETKEY_AWAY_SECONDS", fallback: 3), lockAfterSeconds)
+    return PocketKeyThresholds(
+      trustedRssi: trustedRssi,
+      lockedRssi: lockedRssi,
+      awayAfterSeconds: awayAfterSeconds,
+      lockAfterSeconds: lockAfterSeconds
+    )
+  }
+}
 
 struct TransferRequest: Decodable {
   let item: TransferItem
@@ -52,6 +89,37 @@ struct PendingTransfer {
   var nextFrameIndex: Int = 0
 }
 
+struct MacLockCommand {
+  let executable: String
+  let arguments: [String]
+  let label: String
+}
+
+private let macLockCommands = [
+  MacLockCommand(
+    executable: "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession",
+    arguments: ["-suspend"],
+    label: "CGSession -suspend"
+  ),
+  MacLockCommand(
+    executable: "/usr/bin/osascript",
+    arguments: ["-e", #"tell application "System Events" to keystroke "q" using {control down, command down}"#],
+    label: "osascript control-command-q"
+  ),
+  MacLockCommand(
+    executable: "/usr/bin/pmset",
+    arguments: ["displaysleepnow"],
+    label: "pmset displaysleepnow"
+  )
+]
+
+enum PocketKeyState: String {
+  case unknown
+  case trusted
+  case away
+  case locked
+}
+
 final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentralManagerDelegate {
   private var peripheralManager: CBPeripheralManager!
   private var centralManager: CBCentralManager!
@@ -60,17 +128,25 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
   private var listener: NWListener?
   private var pendingTransfers: [PendingTransfer] = []
   private var subscribedCentrals: Set<CBCentral> = []
+  private var lastPocketKeySignalAt: Date?
+  private var pocketKeyState: PocketKeyState = .unknown
+  private var pocketKeyTimer: DispatchSourceTimer?
+  private var lockIssuedForCurrentLoss = false
+  private let thresholds = PocketKeyThresholds.liveDemo()
 
   func start() throws {
     peripheralManager = CBPeripheralManager(delegate: self, queue: .main)
     centralManager = CBCentralManager(delegate: self, queue: .main)
     try startHTTPListener()
-    print("PocketBridge BLE Agent listening on http://127.0.0.1:\(agentPort)")
+    agentLog("PocketBridge BLE Agent listening on http://127.0.0.1:\(agentPort)")
+    agentLog(
+      "PocketKey thresholds: trusted>=\(thresholds.trustedRssi)dBm, locked<=\(thresholds.lockedRssi)dBm, awayAfter=\(Int(thresholds.awayAfterSeconds))s, lockAfter=\(Int(thresholds.lockAfterSeconds))s"
+    )
   }
 
   func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
     guard peripheral.state == .poweredOn else {
-      print("BLE peripheral state is \(peripheral.state.rawValue)")
+      agentLog("BLE peripheral state is \(peripheral.state.rawValue)")
       return
     }
 
@@ -94,19 +170,19 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
       CBAdvertisementDataServiceUUIDsKey: [transferServiceUUID],
       CBAdvertisementDataLocalNameKey: "PocketBridgeTransferService"
     ])
-    print("Advertising PocketBridgeTransferService")
+    agentLog("Advertising PocketBridgeTransferService")
   }
 
   func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
     subscribedCentrals.insert(central)
-    print("Phone subscribed to downlink, maximumUpdateValueLength=\(central.maximumUpdateValueLength)")
+    agentLog("Phone subscribed to downlink, maximumUpdateValueLength=\(central.maximumUpdateValueLength)")
     flushTransfers()
   }
 
   func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
     for request in requests {
       if request.characteristic.uuid == uplinkWriteUUID, let value = request.value {
-        print("Received BLE ACK/write: \(String(data: value, encoding: .utf8) ?? "\(value.count) bytes")")
+        agentLog("Received BLE ACK/write: \(String(data: value, encoding: .utf8) ?? "\(value.count) bytes")")
       }
       peripheral.respond(to: request, withResult: .success)
     }
@@ -118,14 +194,15 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
 
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
     guard central.state == .poweredOn else {
-      print("BLE central state is \(central.state.rawValue)")
+      agentLog("BLE central state is \(central.state.rawValue)")
       return
     }
 
-    central.scanForPeripherals(withServices: [pocketKeyServiceUUID], options: [
+    central.scanForPeripherals(withServices: nil, options: [
       CBCentralManagerScanOptionAllowDuplicatesKey: true
     ])
-    print("Scanning for PocketKeyService")
+    startPocketKeyTimeoutMonitor()
+    agentLog("Scanning for PocketKeyService")
   }
 
   func centralManager(
@@ -134,10 +211,40 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
     advertisementData: [String: Any],
     rssi RSSI: NSNumber
   ) {
-    print("PocketKey RSSI \(RSSI.intValue) from \(peripheral.identifier)")
-    if RSSI.intValue <= -85 {
-      // CGSession -suspend
-      lockMac()
+    guard advertisesPocketKey(advertisementData) else {
+      return
+    }
+
+    let rssi = RSSI.intValue
+    if rssi == 127 {
+      agentLog("Ignoring invalid PocketKey RSSI 127 from \(peripheral.identifier)")
+      return
+    }
+
+    agentLog("PocketKey RSSI \(rssi) from \(peripheral.identifier)")
+    lastPocketKeySignalAt = Date()
+
+    if rssi <= thresholds.lockedRssi {
+      updatePocketKeyState(.locked, reason: "RSSI \(rssi) <= \(thresholds.lockedRssi)", shouldLock: true)
+    } else if rssi < thresholds.trustedRssi {
+      updatePocketKeyState(.away, reason: "RSSI \(rssi) between trusted and locked thresholds")
+    } else {
+      updatePocketKeyState(.trusted, reason: "RSSI \(rssi) >= \(thresholds.trustedRssi)")
+    }
+  }
+
+  private func advertisesPocketKey(_ advertisementData: [String: Any]) -> Bool {
+    let serviceKeys = [
+      CBAdvertisementDataServiceUUIDsKey,
+      CBAdvertisementDataOverflowServiceUUIDsKey,
+      CBAdvertisementDataSolicitedServiceUUIDsKey
+    ]
+
+    return serviceKeys.contains { key in
+      guard let serviceUUIDs = advertisementData[key] as? [CBUUID] else {
+        return false
+      }
+      return serviceUUIDs.contains(pocketKeyServiceUUID)
     }
   }
 
@@ -163,7 +270,12 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
         return
       }
 
-      // POST /transfers
+      if requestText.hasPrefix("POST /lock ") {
+        self.lockMac()
+        self.respond(connection, status: 200, body: #"{"status":"locked"}"#)
+        return
+      }
+
       guard requestText.hasPrefix("POST /transfers ") else {
         self.respond(connection, status: 404, body: #"{"error":"not found"}"#)
         return
@@ -219,7 +331,7 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
     )
 
     pendingTransfers.append(PendingTransfer(response: response, frames: [metadataFrame] + chunks + [doneFrame]))
-    print("Queued BLE transfer \(request.share.id): \(chunks.count) chunks, \(payload.count) bytes, SHA-256 \(checksum)")
+    agentLog("Queued BLE transfer \(request.share.id): \(chunks.count) chunks, \(payload.count) bytes, SHA-256 \(checksum)")
     flushTransfers()
     return response
   }
@@ -240,7 +352,52 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
         }
         transfer.nextFrameIndex += 1
       }
-      print("Sent BLE transfer \(transfer.response.id)")
+      agentLog("Sent BLE transfer \(transfer.response.id)")
+    }
+  }
+
+  private func startPocketKeyTimeoutMonitor() {
+    guard pocketKeyTimer == nil else {
+      return
+    }
+
+    let timer = DispatchSource.makeTimerSource(queue: .main)
+    timer.schedule(deadline: .now() + 1, repeating: 1)
+    timer.setEventHandler { [weak self] in
+      self?.checkPocketKeyTimeout()
+    }
+    timer.resume()
+    pocketKeyTimer = timer
+  }
+
+  private func checkPocketKeyTimeout() {
+    guard let lastPocketKeySignalAt else {
+      return
+    }
+
+    let age = Date().timeIntervalSince(lastPocketKeySignalAt)
+    if age >= thresholds.lockAfterSeconds {
+      updatePocketKeyState(.locked, reason: "no PocketKey signal for \(Int(age))s", shouldLock: true)
+    } else if age >= thresholds.awayAfterSeconds {
+      updatePocketKeyState(.away, reason: "no PocketKey signal for \(Int(age))s")
+    }
+  }
+
+  private func updatePocketKeyState(_ nextState: PocketKeyState, reason: String, shouldLock: Bool = false) {
+    if nextState != pocketKeyState {
+      agentLog("PocketKey state \(pocketKeyState.rawValue) -> \(nextState.rawValue): \(reason)")
+      pocketKeyState = nextState
+    }
+
+    if nextState == .trusted {
+      lockIssuedForCurrentLoss = false
+      return
+    }
+
+    if shouldLock && !lockIssuedForCurrentLoss {
+      lockIssuedForCurrentLoss = true
+      // CGSession -suspend
+      lockMac()
     }
   }
 
@@ -260,10 +417,29 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
   }
 
   private func lockMac() {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: lockCommand)
-    process.arguments = ["-suspend"]
-    try? process.run()
+    for command in macLockCommands {
+      guard FileManager.default.isExecutableFile(atPath: command.executable) else {
+        agentLog("Skipping unavailable macOS lock command: \(command.label)")
+        continue
+      }
+
+      let process = Process()
+      process.executableURL = URL(fileURLWithPath: command.executable)
+      process.arguments = command.arguments
+      do {
+        try process.run()
+        process.waitUntilExit()
+        if process.terminationStatus == 0 {
+          agentLog("Executed macOS lock command: \(command.label)")
+          return
+        }
+        agentLog("macOS lock command failed with status \(process.terminationStatus): \(command.label)")
+      } catch {
+        agentLog("Failed to execute macOS lock command \(command.label): \(error)")
+      }
+    }
+
+    agentLog("No macOS lock command succeeded")
   }
 }
 

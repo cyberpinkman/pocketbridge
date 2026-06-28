@@ -127,6 +127,75 @@ test("POST /api/ble/rssi derives PocketKey lock state from signal strength", asy
   }
 });
 
+test("POST /api/ble/status locked requests macOS lock from the BLE agent", async () => {
+  const originalMetadata = await readMetadata();
+  const originalTransport = process.env.PB_BLE_TRANSPORT;
+  const originalAgentUrl = process.env.PB_BLE_AGENT_URL;
+  const lockRequests = [];
+
+  await writeMetadata({
+    items: [],
+    pairingSessions: [
+      {
+        id: "pairing-session",
+        token: "123456",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        expiresAt: "2999-01-01T00:00:00.000Z"
+      }
+    ],
+    shares: []
+  });
+
+  const agent = http.createServer((request, response) => {
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, "/lock");
+    lockRequests.push(request.url);
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ status: "locked" }));
+  });
+
+  try {
+    await new Promise((resolve) => agent.listen(0, "127.0.0.1", resolve));
+    const agentAddress = agent.address();
+    assert.equal(typeof agentAddress, "object");
+    process.env.PB_BLE_TRANSPORT = "agent";
+    process.env.PB_BLE_AGENT_URL = `http://127.0.0.1:${agentAddress.port}`;
+
+    const server = http.createServer(createApp());
+    try {
+      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      assert.equal(typeof address, "object");
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/ble/status`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-pocketbridge-pair-code": "123456"
+        },
+        body: JSON.stringify({
+          status: "locked",
+          deviceName: "Demo Phone",
+          rssi: -91
+        })
+      });
+      assert.equal(response.status, 200);
+
+      const body = await response.json();
+      assert.equal(body.status, "locked");
+      assert.equal(body.macLock.status, "requested");
+      assert.deepEqual(lockRequests, ["/lock"]);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  } finally {
+    await new Promise((resolve) => agent.close(resolve));
+    await writeMetadata(originalMetadata);
+    restoreEnv("PB_BLE_TRANSPORT", originalTransport);
+    restoreEnv("PB_BLE_AGENT_URL", originalAgentUrl);
+  }
+});
+
 test("GET /api/ble/status derives away and locked states when phone heartbeat stops", async () => {
   const originalMetadata = await readMetadata();
   const originalAwayMs = process.env.PB_BLE_AWAY_MS;

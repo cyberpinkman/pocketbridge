@@ -30,6 +30,12 @@ test("mobile app exposes a real BLE demo client for transfer and PocketKey", asy
   assert.match(android, /pocketbridge\/ble/);
   assert.match(android, /writeCharacteristic/);
   assert.match(android, /startAdvertising/);
+  assert.doesNotMatch(android, /addServiceData/);
+  assert.match(android, /onStartFailure/);
+  assert.match(android, /PocketKeyService advertising failed/);
+  assert.match(android, /onRequestPermissionsResult/);
+  assert.match(android, /bleDemoRunning/);
+  assert.match(android, /Real BLE demo already running/);
   assert.match(android, new RegExp(contract.ble.transferService.uuid, "i"));
   assert.match(android, new RegExp(contract.ble.pocketKeyService.uuid, "i"));
 

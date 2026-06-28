@@ -27,10 +27,10 @@
     "checksum": "sha256"
   },
   "lock": {
-    "trustedRssiMin": -65,
-    "lockedRssiMax": -85,
-    "awayAfterMs": 10000,
-    "lockAfterMs": 20000,
-    "macLockCommand": "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession -suspend"
+    "trustedRssiMin": -62,
+    "lockedRssiMax": -78,
+    "awayAfterMs": 3000,
+    "lockAfterMs": 8000,
+    "macLockCommand": "first available macOS lock command"
   }
 }

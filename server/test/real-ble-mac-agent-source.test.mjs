@@ -18,9 +18,26 @@ test("macOS real BLE agent source exposes CoreBluetooth transfer and PocketKey p
   assert.match(source, /POST \/transfers/);
   assert.match(source, /SHA256/);
   assert.match(source, /CGSession -suspend/);
+  assert.match(source, /osascript control-command-q/);
+  assert.match(source, /pmset displaysleepnow/);
+  assert.match(source, /No macOS lock command succeeded/);
   assert.match(source, /startAdvertising/);
   assert.match(source, /scanForPeripherals/);
+  assert.match(source, /withServices: nil/);
+  assert.match(source, /advertisesPocketKey/);
+  assert.match(source, /CBAdvertisementDataOverflowServiceUUIDsKey/);
   assert.match(source, /maximumUpdateValueLength/);
+  assert.match(source, /agentLog/);
+  assert.match(source, /lastPocketKeySignalAt/);
+  assert.match(source, /PB_POCKETKEY_LOCKED_RSSI/);
+  assert.match(source, /PB_POCKETKEY_TRUSTED_RSSI/);
+  assert.match(source, /PB_POCKETKEY_AWAY_SECONDS/);
+  assert.match(source, /PB_POCKETKEY_LOCK_SECONDS/);
+  assert.match(source, /PocketKey thresholds/);
+  assert.match(source, /no PocketKey signal/);
+  assert.match(source, /Ignoring invalid PocketKey RSSI 127/);
+  assert.match(source, /POST \/lock/);
+  assert.match(source, /Executed macOS lock command/);
 
   assert.match(source, new RegExp(contract.ble.transferService.uuid, "i"));
   assert.match(source, new RegExp(contract.ble.transferService.characteristics.downlinkNotify, "i"));

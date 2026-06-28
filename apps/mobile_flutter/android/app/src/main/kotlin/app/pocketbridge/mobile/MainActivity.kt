@@ -23,6 +23,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.ParcelUuid
+import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.engine.FlutterEngine
@@ -32,6 +33,12 @@ import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 class MainActivity : FlutterActivity() {
+    companion object {
+        private const val TAG = "PocketBridgeBLE"
+        private const val REQUEST_BLE_PERMISSIONS = 4002
+        private const val REQUEST_LEGACY_BLE_PERMISSIONS = 4001
+    }
+
     private val channelName = "pocketbridge/ble"
     private val transferServiceUuid = UUID.fromString("6f8f8e11-07bb-4f0c-b9a9-54f5af7d9c31")
     private val downlinkNotifyUuid = UUID.fromString("6f8f8e12-07bb-4f0c-b9a9-54f5af7d9c31")
@@ -43,15 +50,21 @@ class MainActivity : FlutterActivity() {
     private var advertiser: BluetoothLeAdvertiser? = null
     private var gatt: BluetoothGatt? = null
     private var uplink: BluetoothGattCharacteristic? = null
+    private var pendingBleDemoDeviceName: String? = null
+    private var bleDemoRunning = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName).setMethodCallHandler { call, result ->
             when (call.method) {
                 "startDemo" -> {
-                    ensureBlePermissions()
-                    startBleDemo(call.argument<String>("deviceName") ?: "PocketBridge Phone")
-                    result.success("Real BLE demo started")
+                    val deviceName = call.argument<String>("deviceName") ?: "PocketBridge Phone"
+                    if (ensureBlePermissions(deviceName)) {
+                        startBleDemo(deviceName)
+                        result.success("Real BLE demo started")
+                    } else {
+                        result.success("BLE permissions requested; demo will start after approval")
+                    }
                 }
                 "stopDemo" -> {
                     stopBleDemo()
@@ -64,9 +77,14 @@ class MainActivity : FlutterActivity() {
 
     @SuppressLint("MissingPermission")
     private fun startBleDemo(deviceName: String) {
+        if (bleDemoRunning) {
+            Log.i(TAG, "Real BLE demo already running")
+            return
+        }
         val adapter = bluetoothAdapter() ?: return
         scanner = adapter.bluetoothLeScanner
         advertiser = adapter.bluetoothLeAdvertiser
+        bleDemoRunning = true
         startPocketKeyAdvertising(deviceName)
         scanForTransferService()
     }
@@ -79,6 +97,9 @@ class MainActivity : FlutterActivity() {
         gatt?.close()
         gatt = null
         uplink = null
+        pendingBleDemoDeviceName = null
+        bleDemoRunning = false
+        Log.i(TAG, "Real BLE demo stopped")
     }
 
     @SuppressLint("MissingPermission")
@@ -89,14 +110,24 @@ class MainActivity : FlutterActivity() {
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
-        scanner?.startScan(listOf(filter), settings, scanCallback)
+        try {
+            scanner?.startScan(listOf(filter), settings, scanCallback)
+            Log.i(TAG, "Scanning for PocketBridgeTransferService")
+        } catch (error: SecurityException) {
+            Log.e(TAG, "Missing BLE scan permission", error)
+        }
     }
 
     private val scanCallback = object : ScanCallback() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             scanner?.stopScan(this)
+            Log.i(TAG, "Found PocketBridgeTransferService, connecting to ${result.device.address}")
             gatt = result.device.connectGatt(this@MainActivity, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            Log.e(TAG, "BLE scan failed with code $errorCode")
         }
     }
 
@@ -104,6 +135,7 @@ class MainActivity : FlutterActivity() {
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             if (newState == BluetoothGatt.STATE_CONNECTED) {
+                Log.i(TAG, "Connected to PocketBridgeTransferService")
                 gatt.discoverServices()
             }
         }
@@ -117,6 +149,7 @@ class MainActivity : FlutterActivity() {
             val descriptor: BluetoothGattDescriptor? = downlink.getDescriptor(clientConfigDescriptorUuid)
             descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             descriptor?.let { gatt.writeDescriptor(it) }
+            Log.i(TAG, "Subscribed to PocketBridge downlink notifications")
         }
 
         override fun onCharacteristicChanged(
@@ -125,6 +158,7 @@ class MainActivity : FlutterActivity() {
             value: ByteArray
         ) {
             if (characteristic.uuid == downlinkNotifyUuid) {
+                Log.i(TAG, "Received BLE downlink frame: ${value.size} bytes")
                 writeAck(gatt, value.size)
             }
         }
@@ -132,6 +166,7 @@ class MainActivity : FlutterActivity() {
         @Deprecated("Deprecated in Java")
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             if (characteristic.uuid == downlinkNotifyUuid) {
+                Log.i(TAG, "Received BLE downlink frame: ${characteristic.value?.size ?: 0} bytes")
                 writeAck(gatt, characteristic.value?.size ?: 0)
             }
         }
@@ -160,39 +195,72 @@ class MainActivity : FlutterActivity() {
         val data = AdvertiseData.Builder()
             .setIncludeDeviceName(false)
             .addServiceUuid(ParcelUuid(pocketKeyServiceUuid))
-            .addServiceData(ParcelUuid(pocketKeyServiceUuid), deviceName.toByteArray(StandardCharsets.UTF_8))
             .build()
-        advertiser?.startAdvertising(settings, data, advertiseCallback)
+        try {
+            advertiser?.startAdvertising(settings, data, advertiseCallback)
+            Log.i(TAG, "Starting PocketKeyService advertising for $deviceName")
+        } catch (error: SecurityException) {
+            Log.e(TAG, "Missing BLE advertise permission", error)
+        }
     }
 
-    private val advertiseCallback = object : AdvertiseCallback() {}
+    private val advertiseCallback = object : AdvertiseCallback() {
+        override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
+            Log.i(TAG, "PocketKeyService advertising started")
+        }
+
+        override fun onStartFailure(errorCode: Int) {
+            Log.e(TAG, "PocketKeyService advertising failed with code $errorCode")
+        }
+    }
 
     private fun bluetoothAdapter(): BluetoothAdapter? {
         val manager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         return manager.adapter
     }
 
-    private fun ensureBlePermissions() {
+    private fun ensureBlePermissions(deviceName: String): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            requestIfMissing(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 4001)
-            return
+            return requestIfMissing(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_LEGACY_BLE_PERMISSIONS, deviceName)
         }
-        requestIfMissing(
+        return requestIfMissing(
             arrayOf(
                 Manifest.permission.BLUETOOTH_SCAN,
                 Manifest.permission.BLUETOOTH_CONNECT,
                 Manifest.permission.BLUETOOTH_ADVERTISE
             ),
-            4002
+            REQUEST_BLE_PERMISSIONS,
+            deviceName
         )
     }
 
-    private fun requestIfMissing(permissions: Array<String>, requestCode: Int) {
+    private fun requestIfMissing(permissions: Array<String>, requestCode: Int, deviceName: String): Boolean {
         val missing = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
         if (missing.isNotEmpty()) {
+            pendingBleDemoDeviceName = deviceName
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), requestCode)
+            return false
+        }
+        return true
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQUEST_BLE_PERMISSIONS && requestCode != REQUEST_LEGACY_BLE_PERMISSIONS) {
+            return
+        }
+        val deviceName = pendingBleDemoDeviceName ?: return
+        pendingBleDemoDeviceName = null
+        if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            startBleDemo(deviceName)
+        } else {
+            Log.e(TAG, "BLE permissions denied")
         }
     }
 }
