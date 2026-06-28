@@ -21,14 +21,16 @@ Implemented and verified locally:
 - Knowledge export into `data/obsidian/PocketBridge/`.
 - Built-in Capture Studio using browser `getDisplayMedia`, canvas annotation, and direct PocketInbox upload.
 - Bluetooth demo transfer through `Send by Bluetooth`, backed by `/api/ble/send/:itemId`.
+- Mac-side real BLE Agent handoff rehearsal through `npm run demo:ble-agent`.
+- Flutter Android real BLE demo controls: `Start BLE Demo` and `Stop BLE`.
 - Standalone PocketKey states through Bluetooth RSSI and `/api/ble/rssi`: `trusted`, `away`, `locked`.
 - Optional BLE Capsule text bridge: `integrations/ble-capsule/capsule-text.sh`.
 - Mobile browser fallback at `/mobile.html` for the current machine when Flutter/Dart are unavailable.
 - Third-party Snapzy and BLEUnlock bridges remain compatibility paths only; they are not required for the final demo.
 
-Still demo/future-facing:
+Still future-facing:
 
-- Full BLE GATT transport and chunking protocol.
+- Large-file BLE resume, background transfer hardening, and iOS native BLE parity.
 - Pro Relay cloud transfer, resumable large files, payments, and AI parsing.
 
 ## 0. Pre-demo Rehearsal
@@ -36,8 +38,17 @@ Still demo/future-facing:
 Run the full rehearsal before showing the product:
 
 ```bash
+npm run demo:ready
+```
+
+This runs the browser/HTTP live rehearsal, the Mac BLE Agent handoff rehearsal, and the environment check.
+
+If you need to run the checks individually:
+
+```bash
 npm run env:check
 npm run demo:live
+npm run demo:ble-agent
 ```
 
 This checks the core path in one command:
@@ -49,6 +60,7 @@ This checks the core path in one command:
 - Markdown knowledge export
 - built-in Capture Studio screenshot and annotation flow
 - Bluetooth send from Mac to bound phone
+- Mac BLE Agent queue through `PB_BLE_TRANSPORT=agent`
 - PocketKey status flow: `trusted -> away -> locked`
 
 If this fails, use the failure output as the pre-demo fix list.
@@ -168,6 +180,23 @@ Expected signs:
 - The phone sees the item through `GET /api/items?sharedToMobile=true`.
 - The API path used is `POST /api/ble/send/<itemId>`.
 - File download uses `GET /api/items/:id/download`.
+
+Real BLE Agent rehearsal:
+
+```bash
+npm run demo:ble-agent
+```
+
+This verifies `PB_BLE_TRANSPORT=agent`, starts `PocketBridgeBLEAgent`, and proves the Mac `Send by Bluetooth` route can queue through the local BLE Agent.
+
+Real Android BLE path:
+
+1. Start the Mac bridge with `PB_BLE_TRANSPORT=agent`.
+2. Start the Swift BLE Agent.
+3. In the Flutter app, open `Shared`.
+4. Tap `Start BLE Demo`.
+5. Send an annotated capture from Mac.
+6. Confirm Android logs show GATT connection, downlink notify, and uplink ACK writes.
 
 ## 7. PocketKey
 
