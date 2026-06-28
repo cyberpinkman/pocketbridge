@@ -1,6 +1,22 @@
 node_modules/
 dist/
 .DS_Store
-data/
-.env
+*.log
 
+# Local inbox data can contain private user material.
+data/inbox/*
+!data/inbox/.gitkeep
+data/obsidian/
+data/watch/
+
+# Generated metadata should be local unless explicitly curated.
+data/metadata.json
+my-knowledge-base/
+tmp/
+
+# Flutter/macOS generated artifacts.
+apps/mobile_flutter/.dart_tool/
+apps/mobile_flutter/build/
+apps/mac_desktop/build/
+apps/mac_desktop/native/.build/
+integrations/real-ble-agent/mac-agent/.build/

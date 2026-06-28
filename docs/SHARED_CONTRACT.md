@@ -30,6 +30,8 @@ PB_SNAPZY_WATCH_DIR=./data/watch/snapzy
 PB_MAX_UPLOAD_MB=100
 ```
 
+Invalid or non-positive `PB_MAX_UPLOAD_MB` values fall back to `100`.
+
 Runtime directories:
 
 ```text
@@ -42,6 +44,8 @@ data/
   metadata.json
   obsidian/
     PocketBridge/
+  tmp/
+    uploads/
   watch/
     snapzy/
 ```
@@ -104,6 +108,7 @@ type PocketItem = {
   status: PocketItemStatus;
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string;
   downloadUrl?: string;
   knowledgePath?: string;
 };
@@ -176,6 +181,12 @@ Request:
 }
 ```
 
+Required fields:
+
+- `text`: required non-empty string.
+- `origin`: required, one of `mobile`, `mac`, `snapzy`.
+- `sourceDevice`: required non-empty string.
+
 Response:
 
 ```json
@@ -239,6 +250,27 @@ Query parameters:
 
 - `origin`: optional `mobile`, `mac`, or `snapzy`.
 - `sharedToMobile`: optional `true` or `false`.
+- `includeArchived`: optional `true` or `false`, default `false`.
+- `limit`: optional integer, default `100`.
+
+Response:
+
+```json
+{
+  "items": []
+}
+```
+
+### `GET /api/items/search`
+
+Searches title, text, tags, origin, kind, source device, MIME type, filename, storage path, and id.
+
+Query parameters:
+
+- `q`: required search string. Multiple terms are AND-matched.
+- `origin`: optional `mobile`, `mac`, or `snapzy`.
+- `sharedToMobile`: optional `true` or `false`.
+- `includeArchived`: optional `true` or `false`, default `false`.
 - `limit`: optional integer, default `100`.
 
 Response:
@@ -310,6 +342,43 @@ GET /api/items?sharedToMobile=true
 GET /api/items/:id/download
 ```
 
+### `POST /api/items/:id/archive`
+
+Archives or restores an item. Archived items are hidden from normal list and search responses unless `includeArchived=true`.
+
+Request:
+
+```json
+{
+  "archived": true
+}
+```
+
+Response:
+
+```json
+{
+  "item": {
+    "id": "itm_1782547200000_a9f4c21b",
+    "archivedAt": "2026-06-27T12:00:00.000Z"
+  }
+}
+```
+
+### `DELETE /api/items/:id`
+
+Permanently removes an item from metadata. File/image/screenshot items also remove their local inbox item directory.
+
+Response:
+
+```json
+{
+  "item": {
+    "id": "itm_1782547200000_a9f4c21b"
+  }
+}
+```
+
 ### `POST /api/knowledge/:id`
 
 Writes an item into the Markdown knowledge base.
@@ -330,30 +399,46 @@ Response:
   "item": {
     "id": "itm_1782547200000_a9f4c21b",
     "status": "saved_to_knowledge",
-  "knowledgePath": "data/obsidian/PocketBridge/2026-06-27-idea-from-phone-itm_1782547200000_a9f4c21b.md"
+    "knowledgePath": "data/obsidian/PocketBridge/inbox/2026-06-27-idea-from-phone-itm_1782547200000_a9f4c21b.md"
   }
 }
 ```
 
-Markdown output format:
+Markdown output format for a text item:
 
 ```markdown
 ---
-id: itm_1782547200000_a9f4c21b
-title: Idea from phone
-origin: mobile
-sourceDevice: Pinkmans-iPhone
-createdAt: 2026-06-27T12:00:00.000Z
+id: "itm_1782547200000_a9f4c21b"
+title: "Idea from phone"
+origin: "mobile"
+sourceDevice: "Pinkmans-iPhone"
+source: "phone"
+kind: "text"
+createdAt: "2026-06-27T12:00:00.000Z"
 tags:
-  - pocketbridge
-  - demo
+  - "pocketbridge"
+  - "demo"
 ---
 
 # Idea from phone
 
+## Summary
+
 Turn screenshots into a personal knowledge stream.
 
+## Content
+
+Turn screenshots into a personal knowledge stream.
+
+Imported during live demo.
+
 Source: mobile / Pinkmans-iPhone
+```
+
+Markdown output for file/image/screenshot items also copies the original asset into `assets/pocketbridge/` and includes an Obsidian attachment link:
+
+```markdown
+Asset: [[../assets/pocketbridge/itm_1782547200000_a9f4c21b-screenshot-2026-06-27-20-00-00.png]]
 ```
 
 ### `GET /api/ble/status`
@@ -418,6 +503,7 @@ type PocketEvent = {
     | "item.created"
     | "item.updated"
     | "item.shared"
+    | "item.deleted"
     | "knowledge.saved"
     | "ble.status";
   version: 1;
@@ -452,7 +538,7 @@ Example:
 }
 ```
 
-Flutter rule: on `item.created`, `item.updated`, `item.shared`, or `knowledge.saved`, refresh `GET /api/items`.
+Flutter rule: on `item.created`, `item.updated`, `item.shared`, `item.deleted`, or `knowledge.saved`, refresh `GET /api/items`.
 
 Mac UI rule: on every item event, update PocketInbox immediately.
 

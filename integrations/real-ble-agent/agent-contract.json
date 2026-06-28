@@ -1,0 +1,38 @@
+{
+  "transportMode": "agent",
+  "http": {
+    "defaultBaseUrl": "http://127.0.0.1:41237",
+    "transferEndpoint": "/transfers",
+    "statusEndpoint": "/status"
+  },
+  "ble": {
+    "transferService": {
+      "name": "PocketBridgeTransferService",
+      "uuid": "6f8f8e11-07bb-4f0c-b9a9-54f5af7d9c31",
+      "characteristics": {
+        "downlinkNotify": "6f8f8e12-07bb-4f0c-b9a9-54f5af7d9c31",
+        "uplinkWrite": "6f8f8e13-07bb-4f0c-b9a9-54f5af7d9c31"
+      }
+    },
+    "pocketKeyService": {
+      "name": "PocketKeyService",
+      "uuid": "6f8f8e21-07bb-4f0c-b9a9-54f5af7d9c31",
+      "characteristics": {
+        "heartbeatNotify": "6f8f8e22-07bb-4f0c-b9a9-54f5af7d9c31"
+      }
+    }
+  },
+  "transfer": {
+    "chunkSizeBytes": 512,
+    "ackEveryChunk": true,
+    "checksum": "sha256"
+  },
+  "lock": {
+    "trustedRssiMin": -62,
+    "lockedRssiMax": -78,
+    "awayAfterMs": 3000,
+    "lockAfterMs": 8000,
+    "lockActionEnv": "PB_POCKETKEY_LOCK_ACTION",
+    "macLockCommand": "first available macOS lock command"
+  }
+}
