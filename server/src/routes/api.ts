@@ -715,14 +715,17 @@ function unauthorizedError(): { error: { code: string; message: string } } {
 }
 
 function resolveServerBaseUrl(request: { protocol: string; get(name: string): string | undefined }): string {
+  const forwardedHost = request.get("x-forwarded-host");
+  if (forwardedHost) {
+    return `${request.protocol}://${forwardedHost}`;
+  }
+
   const publicHost = config.publicHost;
   if (publicHost) {
     return publicBaseUrl(config);
   }
 
-  return `${request.protocol}://${
-    request.get("x-forwarded-host") ?? request.get("host") ?? `localhost:${config.port}`
-  }`;
+  return `${request.protocol}://${request.get("host") ?? `localhost:${config.port}`}`;
 }
 
 function toLocalSource(origin: unknown): PocketItemSource {
