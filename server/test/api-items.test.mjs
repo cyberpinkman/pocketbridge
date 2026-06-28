@@ -98,9 +98,9 @@ test("POST /api/items/upload creates an upstream-shaped file item downloadable t
       assert.deepEqual(uploaded.item.tags, ["file", "demo"]);
       assert.match(
         uploaded.item.storageRelPath,
-        /^inbox\/2026-06-27\/itm_\d+_[a-z0-9_-]{8}\/original$/
+        /^inbox\/\d{4}-\d{2}-\d{2}\/itm_\d+_[a-z0-9_-]{8}\/original$/
       );
-      assert.equal(uploaded.item.storageRelPath, `inbox/2026-06-27/${uploaded.item.id}/original`);
+      assert.equal(uploaded.item.storageRelPath, `inbox/${uploaded.item.createdAt.slice(0, 10)}/${uploaded.item.id}/original`);
       assert.equal(uploaded.item.storageRelPath.includes(process.cwd()), false);
       assert.equal(uploaded.item.sharedToMobile, false);
       assert.equal(uploaded.item.status, "inbox");
@@ -111,7 +111,7 @@ test("POST /api/items/upload creates an upstream-shaped file item downloadable t
       uploadedPath = metadata.items[0].filePath;
       assert.equal(
         uploadedPath,
-        `${process.cwd()}/data/inbox/2026-06-27/${uploaded.item.id}/original`
+        `${process.cwd()}/data/inbox/${uploaded.item.createdAt.slice(0, 10)}/${uploaded.item.id}/original`
       );
       assert.equal(metadata.items[0].source, "phone");
       assert.equal(metadata.items[0].originalName, "phone-upload.txt");
@@ -133,6 +133,112 @@ test("POST /api/items/upload creates an upstream-shaped file item downloadable t
     if (uploadedPath) {
       await fs.rm(uploadedPath, { force: true });
     }
+  }
+});
+
+test("POST /api/items/upload stages multipart files outside PocketInbox and cleans staging files", async () => {
+  const originalMetadata = await readMetadata();
+  await writeMetadata({
+    items: [],
+    pairingSessions: [
+      {
+        id: "pairing-session",
+        token: "123456",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        expiresAt: "2999-01-01T00:00:00.000Z"
+      }
+    ],
+    shares: []
+  });
+
+  let uploadedPath;
+  try {
+    const server = http.createServer(createApp());
+    try {
+      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      assert.equal(typeof address, "object");
+
+      const form = new FormData();
+      form.set("origin", "mobile");
+      form.set("sourceDevice", "Demo Phone");
+      form.set("file", new Blob(["staged file"], { type: "text/plain" }), "staged.txt");
+
+      const uploadResponse = await fetch(`http://127.0.0.1:${address.port}/api/items/upload`, {
+        method: "POST",
+        headers: { "x-pocketbridge-pair-code": "123456" },
+        body: form
+      });
+      assert.equal(uploadResponse.status, 201);
+
+      const uploaded = await uploadResponse.json();
+      const metadata = await readMetadata();
+      uploadedPath = metadata.items[0].filePath;
+
+      assert.equal(await fs.readFile(uploadedPath, "utf8"), "staged file");
+      assert.equal(uploaded.item.storageRelPath, `inbox/${uploaded.item.createdAt.slice(0, 10)}/${uploaded.item.id}/original`);
+      assert.deepEqual(await fs.readdir(`${process.cwd()}/data/tmp/uploads`), []);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  } finally {
+    await writeMetadata(originalMetadata);
+    if (uploadedPath) {
+      await fs.rm(uploadedPath, { force: true });
+    }
+  }
+});
+
+test("GET /api/items/:id/download hides file paths outside PocketInbox", async () => {
+  const originalMetadata = await readMetadata();
+  const outsideInboxPath = `${process.cwd()}/data/not-inbox-secret.txt`;
+  await fs.writeFile(outsideInboxPath, "secret");
+  await writeMetadata({
+    items: [
+      {
+        id: "outside-inbox-item",
+        kind: "document",
+        source: "mac",
+        title: "Outside inbox file",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        originalName: "not-inbox-secret.txt",
+        mimeType: "text/plain",
+        size: 6,
+        filePath: outsideInboxPath,
+        status: "inbox"
+      }
+    ],
+    pairingSessions: [
+      {
+        id: "pairing-session",
+        token: "123456",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        expiresAt: "2999-01-01T00:00:00.000Z"
+      }
+    ],
+    shares: []
+  });
+
+  try {
+    const server = http.createServer(createApp());
+    try {
+      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      assert.equal(typeof address, "object");
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/items/outside-inbox-item/download`, {
+        headers: { "x-pocketbridge-pair-code": "123456" }
+      });
+      assert.equal(response.status, 404);
+
+      const body = await response.json();
+      assert.equal(body.error.code, "NOT_FOUND");
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  } finally {
+    await writeMetadata(originalMetadata);
+    await fs.rm(outsideInboxPath, { force: true });
   }
 });
 

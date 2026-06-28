@@ -113,6 +113,51 @@ test("/ws sends upstream event envelopes to paired clients", async () => {
   }
 });
 
+test("/ws rejects missing or unknown client roles", async () => {
+  const originalMetadata = await readMetadata();
+  await writeMetadata({
+    items: [],
+    pairingSessions: [
+      {
+        id: "pairing-session",
+        token: "123456",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        expiresAt: "2999-01-01T00:00:00.000Z"
+      }
+    ],
+    shares: []
+  });
+
+  const server = http.createServer();
+  const websocketServer = attachWebsocket(server);
+
+  try {
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    assert.equal(typeof address, "object");
+
+    for (const url of [
+      `ws://127.0.0.1:${address.port}/ws?pairCode=123456`,
+      `ws://127.0.0.1:${address.port}/ws?pairCode=123456&client=browser`
+    ]) {
+      const client = new WebSocket(url);
+      try {
+        const closed = await waitForClose(client);
+        assert.equal(closed.code, 1008);
+        assert.equal(closed.reason, "Invalid client");
+      } finally {
+        if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) {
+          client.close();
+        }
+      }
+    }
+  } finally {
+    await writeMetadata(originalMetadata);
+    await new Promise((resolve) => websocketServer.close(resolve));
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 async function waitForMessage(received, type) {
   const startedAt = Date.now();
 
@@ -125,4 +170,20 @@ async function waitForMessage(received, type) {
   }
 
   assert.fail(`Timed out waiting for ${type}`);
+}
+
+async function waitForClose(client) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("Timed out waiting for websocket close"));
+    }, 1000);
+    client.on("close", (code, reason) => {
+      clearTimeout(timeout);
+      resolve({ code, reason: reason.toString() });
+    });
+    client.on("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+  });
 }

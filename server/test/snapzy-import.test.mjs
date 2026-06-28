@@ -35,7 +35,7 @@ test("POST /snapzy/import imports files from the Snapzy inbox folder", async () 
       assert.match(body.items[0].id, /^itm_\d+_[a-z0-9_-]{8}$/);
       assert.equal(
         body.items[0].filePath,
-        `${process.cwd()}/data/inbox/2026-06-27/${body.items[0].id}/original`
+        `${process.cwd()}/data/inbox/${body.items[0].createdAt.slice(0, 10)}/${body.items[0].id}/original`
       );
       importedFilePaths.push(body.items[0].filePath);
 
@@ -82,7 +82,7 @@ test("POST /snapzy/import imports files from the upstream Snapzy watch folder", 
       assert.match(imported.id, /^itm_\d+_[a-z0-9_-]{8}$/);
       assert.equal(
         imported.filePath,
-        `${process.cwd()}/data/inbox/2026-06-27/${imported.id}/original`
+        `${process.cwd()}/data/inbox/${imported.createdAt.slice(0, 10)}/${imported.id}/original`
       );
       importedFilePaths.push(imported.filePath);
 

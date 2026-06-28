@@ -38,7 +38,7 @@ test("live demo rehearsal covers phone, Mac, Snapzy, knowledge, and PocketKey", 
 
     const authHeaders = { "X-PocketBridge-Pair-Code": pairing.pairCode };
     const received = [];
-    client = new WebSocket(`${pairing.wsUrl}?pairCode=${pairing.pairCode}&client=live-demo`);
+    client = new WebSocket(`${pairing.wsUrl}?pairCode=${pairing.pairCode}&client=mobile`);
     client.on("message", (message) => {
       received.push(JSON.parse(String(message)));
     });

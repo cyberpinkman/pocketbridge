@@ -37,14 +37,23 @@ export function attachWebsocket(server: Server): WebSocketServer {
   });
 
   upstreamWebsocketServer.on("connection", (socket, request) => {
-    void validateUpstreamConnection(request.url ?? "").then((valid) => {
-      if (!valid) {
-        socket.close(1008, "Invalid pair code");
-        return;
-      }
+    void validateUpstreamConnection(request.url ?? "")
+      .then((valid) => {
+        if (!valid) {
+          socket.close(1008, "Invalid pair code");
+          return;
+        }
 
-      socket.send(JSON.stringify(createEnvelope("pairing.connected", {})));
-    });
+        socket.send(JSON.stringify(createEnvelope("pairing.connected", {})));
+      })
+      .catch((error) => {
+        if (error instanceof InvalidUpstreamClientError) {
+          socket.close(1008, "Invalid client");
+          return;
+        }
+
+        socket.close(1011, "WebSocket validation failed");
+      });
   });
 
   legacyWebsocketServer.on("close", () => {
@@ -81,9 +90,20 @@ async function validateUpstreamConnection(url: string): Promise<boolean> {
     return false;
   }
 
+  const client = parsed.searchParams.get("client");
+  if (!isUpstreamClient(client)) {
+    throw new InvalidUpstreamClientError();
+  }
+
   const metadata = await readMetadata();
   const session = metadata.pairingSessions.find((candidate) => candidate.token === pairCode);
   return Boolean(session && Date.parse(session.expiresAt) >= Date.now());
+}
+
+class InvalidUpstreamClientError extends Error {}
+
+function isUpstreamClient(value: string | null): value is "mobile" | "mac" {
+  return value === "mobile" || value === "mac";
 }
 
 function toUpstreamEnvelope(event: BridgeEvent) {

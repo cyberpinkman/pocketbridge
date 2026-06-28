@@ -16,7 +16,13 @@ export const apiRouter = Router();
 
 const upload = multer({
   storage: multer.diskStorage({
-    destination: config.inboxDir,
+    destination: (_request, _file, callback) => {
+      const stagingDir = uploadStagingDir();
+      fs.mkdir(stagingDir, { recursive: true }).then(
+        () => callback(null, stagingDir),
+        (error) => callback(error as Error, stagingDir)
+      );
+    },
     filename: (_request, file, callback) => {
       const extension = path.extname(file.originalname);
       callback(null, `${Date.now()}-${nanoid()}${extension}`);
@@ -184,7 +190,7 @@ apiRouter.post("/items/upload", upload.single("file"), async (request, response,
       ? request.body.sourceDevice.trim()
       : "";
     if (!isUpstreamOrigin(origin) || !sourceDevice) {
-      await fs.rm(file.path, { force: true });
+      await cleanupStagedUpload(file);
       response.status(400).json({
         error: {
           code: "BAD_REQUEST",
@@ -196,7 +202,12 @@ apiRouter.post("/items/upload", upload.single("file"), async (request, response,
 
     const now = new Date().toISOString();
     const itemId = createItemId();
-    const filePath = await moveUploadIntoContractPath(file.path, itemId, now);
+    let filePath: string | undefined;
+    try {
+      filePath = await moveUploadIntoContractPath(file.path, itemId, now);
+    } finally {
+      await cleanupStagedUpload(file);
+    }
     const item: PocketItem = {
       id: itemId,
       kind: inferKind(file.mimetype, toLocalSource(origin)),
@@ -309,9 +320,9 @@ apiRouter.get("/items/:itemId/download", async (request, response, next) => {
 
     const resolvedFilePath = path.resolve(item.filePath);
     const inboxRoot = path.resolve(config.inboxDir);
-    if (!resolvedFilePath.startsWith(`${inboxRoot}${path.sep}`)) {
-      response.status(403).json({
-        error: { code: "UNAUTHORIZED", message: "file is outside PocketInbox" }
+    if (!isPathInsideDirectory(inboxRoot, resolvedFilePath)) {
+      response.status(404).json({
+        error: { code: "NOT_FOUND", message: "downloadable file not found" }
       });
       return;
     }
@@ -479,6 +490,21 @@ async function moveUploadIntoContractPath(sourcePath: string, itemId: string, cr
   await fs.mkdir(targetDir, { recursive: true });
   await fs.rename(sourcePath, targetPath);
   return targetPath;
+}
+
+function uploadStagingDir(): string {
+  return path.join(config.dataDir, "tmp", "uploads");
+}
+
+async function cleanupStagedUpload(file: Express.Multer.File): Promise<void> {
+  if (file.path) {
+    await fs.rm(file.path, { force: true });
+  }
+}
+
+function isPathInsideDirectory(root: string, candidate: string): boolean {
+  const relativePath = path.relative(root, candidate);
+  return Boolean(relativePath) && !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
 }
 
 async function requirePairCode(request: {
