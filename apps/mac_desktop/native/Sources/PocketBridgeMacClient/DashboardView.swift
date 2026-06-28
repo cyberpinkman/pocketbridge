@@ -1,8 +1,10 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct DashboardView: View {
   @ObservedObject var model: BridgeDashboardModel
+  @Environment(\.openWindow) private var openWindow
   @State private var isImportingFile = false
 
   var body: some View {
@@ -14,6 +16,10 @@ struct DashboardView: View {
     }
     .frame(minWidth: 1180, minHeight: 760)
     .background(Color(nsColor: .windowBackgroundColor))
+    .installsPocketBridgeStatusItem(model: model) {
+      openWindow(id: "dashboard")
+      NSApplication.shared.activate(ignoringOtherApps: true)
+    }
     .task {
       await model.bootstrap()
     }

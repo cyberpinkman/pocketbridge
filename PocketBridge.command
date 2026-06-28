@@ -2,27 +2,23 @@
 set -euo pipefail
 
 REPO_DIR="${0:A:h}"
-CLIENT_BIN="$REPO_DIR/apps/mac_desktop/native/.build/release/PocketBridgeMacClient"
+BUILD_APP_SCRIPT="$REPO_DIR/apps/mac_desktop/native/scripts/build-app-bundle.sh"
+APP_DIR="$REPO_DIR/tmp/demo-artifacts/PocketBridge.app"
 PID_FILE="/tmp/pocketbridge-mac-client.pid"
 LOG_FILE="/tmp/pocketbridge-mac-client.log"
 
 cd "$REPO_DIR"
 
-if [[ ! -x "$CLIENT_BIN" ]]; then
-  npm run mac:client:build
-fi
+"$BUILD_APP_SCRIPT" > "$LOG_FILE" 2>&1
 
-if [[ -f "$PID_FILE" ]]; then
-  existing_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
-  if [[ -n "$existing_pid" ]] && ps -p "$existing_pid" >/dev/null 2>&1; then
-    echo "PocketBridge Mac Client is already running with PID $existing_pid."
-    exit 0
-  fi
-fi
-
-nohup "$CLIENT_BIN" > "$LOG_FILE" 2>&1 &
-echo $! > "$PID_FILE"
+pkill -x PocketBridgeMacClient 2>/dev/null || true
+open -n "$APP_DIR"
+sleep 1
+pgrep -nx PocketBridgeMacClient > "$PID_FILE" || true
 
 echo "PocketBridge Mac Client started."
 echo "Log: $LOG_FILE"
-sleep 1
+if [[ -s "$PID_FILE" ]]; then
+  echo "PID: $(cat "$PID_FILE")"
+fi
+sleep 2

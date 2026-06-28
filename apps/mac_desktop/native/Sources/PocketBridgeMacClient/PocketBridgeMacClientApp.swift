@@ -4,7 +4,13 @@ import SwiftUI
 @main
 struct PocketBridgeMacClientApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-  @StateObject private var model = BridgeDashboardModel()
+  @StateObject private var model: BridgeDashboardModel
+
+  init() {
+    let model = BridgeDashboardModel()
+    _model = StateObject(wrappedValue: model)
+    AppDelegate.model = model
+  }
 
   var body: some Scene {
     WindowGroup("PocketBridge", id: "dashboard") {
@@ -14,34 +20,39 @@ struct PocketBridgeMacClientApp: App {
     .commands {
       CommandGroup(replacing: .newItem) {}
     }
-
-    MenuBarExtra {
-      MenuBarStatusView(model: model)
-    } label: {
-      Label("PocketBridge", systemImage: menuBarIcon)
-    }
-    .menuBarExtraStyle(.menu)
-  }
-
-  private var menuBarIcon: String {
-    if model.demoShieldActive {
-      return "lock.fill"
-    }
-    switch model.agentStatus?.pocketKey.state {
-    case "trusted":
-      return "lock.open.fill"
-    case "locked":
-      return "lock.fill"
-    case "away":
-      return "lock.trianglebadge.exclamationmark"
-    default:
-      return "bridge.2"
-    }
   }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+  static var model: BridgeDashboardModel?
+  private var keepAliveWindow: NSWindow?
+
+  func applicationDidFinishLaunching(_ notification: Notification) {
+    NSApplication.shared.setActivationPolicy(.regular)
+    installKeepAliveWindow()
+    if let model = Self.model {
+      StatusBarController.shared.install(model: model) {
+        StatusBarController.shared.showExistingDashboardWindow()
+      }
+    }
+  }
+
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     false
+  }
+
+  private func installKeepAliveWindow() {
+    let window = NSWindow(
+      contentRect: NSRect(x: -10_000, y: -10_000, width: 1, height: 1),
+      styleMask: [.borderless],
+      backing: .buffered,
+      defer: false
+    )
+    window.alphaValue = 0
+    window.ignoresMouseEvents = true
+    window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+    window.isReleasedWhenClosed = false
+    window.orderFront(nil)
+    keepAliveWindow = window
   }
 }

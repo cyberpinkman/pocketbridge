@@ -7,6 +7,7 @@ test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls",
   const pkg = JSON.parse(await fs.readFile("package.json", "utf8"));
   const swiftPackage = await fs.readFile("apps/mac_desktop/native/Package.swift", "utf8");
   const launcher = await fs.readFile("PocketBridge.command", "utf8");
+  const appBundleScript = await fs.readFile("apps/mac_desktop/native/scripts/build-app-bundle.sh", "utf8");
   const sourceDir = "apps/mac_desktop/native/Sources/PocketBridgeMacClient";
   const files = await fs.readdir(sourceDir);
   const source = (
@@ -17,13 +18,24 @@ test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls",
 
   assert.equal(pkg.scripts["mac:client"], "swift run --package-path apps/mac_desktop/native PocketBridgeMacClient");
   assert.equal(pkg.scripts["mac:client:build"], "swift build --package-path apps/mac_desktop/native -c release");
-  assert.match(launcher, /apps\/mac_desktop\/native\/\.build\/release\/PocketBridgeMacClient/);
-  assert.match(launcher, /npm run mac:client:build/);
-  assert.match(launcher, /nohup "\$CLIENT_BIN"/);
+  assert.match(launcher, /build-app-bundle\.sh/);
+  assert.match(launcher, /open -n "\$APP_DIR"/);
+  assert.match(launcher, /pgrep -nx PocketBridgeMacClient/);
+  assert.match(appBundleScript, /npm run mac:client:build/);
+  assert.match(appBundleScript, /tmp\/demo-artifacts\/PocketBridge\.app/);
+  assert.match(appBundleScript, /CFBundleExecutable/);
+  assert.match(appBundleScript, /LSUIElement/);
+  assert.match(appBundleScript, /codesign --force --sign - "\$APP_DIR"/);
   assert.match(swiftPackage, /PocketBridgeMacClient/);
   assert.match(source, /@main/);
   assert.match(source, /SwiftUI/);
-  assert.match(source, /MenuBarExtra/);
+  assert.match(source, /NSStatusBar\.system\.statusItem/);
+  assert.match(source, /private let menu = NSMenu\(title: "PocketBridge"\)/);
+  assert.match(source, /menuNeedsUpdate/);
+  assert.match(source, /menu\.removeAllItems\(\)/);
+  assert.match(source, /button\.title = "PB"/);
+  assert.match(source, /button\.title = "PB OK"/);
+  assert.match(source, /button\.title = "PB LOCK"/);
   assert.match(source, /applicationShouldTerminateAfterLastWindowClosed/);
   assert.match(source, /Open PocketBridge/);
   assert.match(source, /Auto Demo Lock/);

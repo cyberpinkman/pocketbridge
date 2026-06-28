@@ -30,7 +30,7 @@ npm run mac:client
 
 Run those from the repository root. A Desktop launcher is also safe for live demo: `~/Desktop/PocketBridge.command`.
 
-The client starts or detects the local Node bridge and the real BLE agent, shows the pairing QR code, PocketInbox, native screen capture, file upload, phone handoff, knowledge export, PocketKey RSSI, and reversible demo lock controls in one window. It also stays resident in the macOS menu bar for status and quick controls after the main window is closed.
+The client starts or detects the local Node bridge and the real BLE agent, shows the pairing QR code, PocketInbox, native screen capture, file upload, phone handoff, knowledge export, PocketKey RSSI, and reversible demo lock controls in one window. It also stays resident as a visible `PB` item in the macOS menu bar for status and quick controls after the main window is closed.
 
 Build it without launching:
 

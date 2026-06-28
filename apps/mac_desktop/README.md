@@ -35,7 +35,7 @@ Native client scope:
 - show real PocketKey RSSI, state, and thresholds from the agent `/status` endpoint
 - upload files and quick text captures without opening the browser
 - show and clear the reversible full-screen Demo Lock shield from the same client
-- stay resident in the macOS menu bar with status, Start, Refresh, Demo Lock, pairing copy, and Quit controls
+- stay resident as a visible `PB` macOS menu bar item with status, Start, Refresh, Demo Lock, pairing copy, and Quit controls
 
 The native client uses the shared upstream contract:
 
