@@ -58,7 +58,7 @@ http://<Mac-LAN-IP>:3000/mobile.html
 open ./PocketBridge.command
 ```
 
-Click `Start` in the native Mac client. It starts or detects the Node bridge and BLE agent, then shows the pairing QR code, pair payload, PocketInbox, native capture, PocketKey RSSI, lock threshold, and activity log in one window.
+Click `Start` in the native Mac client. It starts or detects the Node bridge and BLE agent, then shows the pairing QR code, pair payload, PocketInbox, native capture, PocketKey RSSI, lock threshold, and activity log in one window. The PocketBridge menu bar item remains available for quick status, Demo Lock, refresh, and reopening the dashboard.
 
 ## Pair Phone
 

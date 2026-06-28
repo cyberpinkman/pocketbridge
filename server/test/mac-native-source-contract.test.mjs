@@ -23,6 +23,11 @@ test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls",
   assert.match(swiftPackage, /PocketBridgeMacClient/);
   assert.match(source, /@main/);
   assert.match(source, /SwiftUI/);
+  assert.match(source, /MenuBarExtra/);
+  assert.match(source, /applicationShouldTerminateAfterLastWindowClosed/);
+  assert.match(source, /Open PocketBridge/);
+  assert.match(source, /Auto Demo Lock/);
+  assert.match(source, /Quit PocketBridge/);
   assert.match(source, /Start/);
   assert.match(source, /Process\(\)/);
   assert.match(source, /PB_BLE_TRANSPORT/);

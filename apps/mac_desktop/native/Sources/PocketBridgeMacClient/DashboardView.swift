@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct DashboardView: View {
-  @StateObject private var model = BridgeDashboardModel()
+  @ObservedObject var model: BridgeDashboardModel
   @State private var isImportingFile = false
 
   var body: some View {
