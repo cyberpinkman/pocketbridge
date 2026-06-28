@@ -127,6 +127,85 @@ test("POST /api/ble/rssi derives PocketKey lock state from signal strength", asy
   }
 });
 
+test("GET /api/ble/status derives away and locked states when phone heartbeat stops", async () => {
+  const originalMetadata = await readMetadata();
+  const originalAwayMs = process.env.PB_BLE_AWAY_MS;
+  const originalLockMs = process.env.PB_BLE_LOCK_MS;
+  process.env.PB_BLE_AWAY_MS = "25";
+  process.env.PB_BLE_LOCK_MS = "50";
+
+  await writeMetadata({
+    items: [],
+    pairingSessions: [
+      {
+        id: "pairing-session",
+        token: "123456",
+        createdAt: "2026-06-27T00:00:00.000Z",
+        expiresAt: "2999-01-01T00:00:00.000Z"
+      }
+    ],
+    shares: []
+  });
+
+  try {
+    const server = http.createServer(createApp());
+    try {
+      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      assert.equal(typeof address, "object");
+
+      const heartbeatResponse = await fetch(`http://127.0.0.1:${address.port}/api/ble/rssi`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-pocketbridge-pair-code": "123456"
+        },
+        body: JSON.stringify({
+          deviceName: "Bound Phone",
+          rssi: -51
+        })
+      });
+      assert.equal(heartbeatResponse.status, 200);
+
+      await new Promise((resolve) => setTimeout(resolve, 35));
+      const awayResponse = await fetch(`http://127.0.0.1:${address.port}/api/ble/status`, {
+        headers: { "x-pocketbridge-pair-code": "123456" }
+      });
+      assert.equal(awayResponse.status, 200);
+      const away = await awayResponse.json();
+      assert.equal(away.status, "away");
+      assert.equal(away.lockState, "away");
+      assert.equal(away.rssi, -51);
+      assert.ok(away.lastSignalAt);
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      const lockedResponse = await fetch(`http://127.0.0.1:${address.port}/api/ble/status`, {
+        headers: { "x-pocketbridge-pair-code": "123456" }
+      });
+      assert.equal(lockedResponse.status, 200);
+      const locked = await lockedResponse.json();
+      assert.equal(locked.status, "locked");
+      assert.equal(locked.lockState, "locked");
+      assert.equal(locked.rssi, -51);
+      assert.equal(locked.lastSignalAt, away.lastSignalAt);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  } finally {
+    await writeMetadata(originalMetadata);
+    if (originalAwayMs === undefined) {
+      delete process.env.PB_BLE_AWAY_MS;
+    } else {
+      process.env.PB_BLE_AWAY_MS = originalAwayMs;
+    }
+    if (originalLockMs === undefined) {
+      delete process.env.PB_BLE_LOCK_MS;
+    } else {
+      process.env.PB_BLE_LOCK_MS = originalLockMs;
+    }
+  }
+});
+
 test("POST /api/ble/send/:id queues an inbox item for the bound phone over BLE", async () => {
   const originalMetadata = await readMetadata();
   await writeMetadata({

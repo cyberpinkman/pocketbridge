@@ -140,7 +140,7 @@ function startPocketKeyHeartbeat() {
   void sendPocketKeyRssi({ quiet: true });
   state.pocketKeyTimer = window.setInterval(() => {
     void sendPocketKeyRssi({ quiet: true });
-  }, 10000);
+  }, 5000);
 }
 
 async function setPocketKeyStatus(status, options = {}) {

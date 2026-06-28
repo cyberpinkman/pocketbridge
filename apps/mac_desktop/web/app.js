@@ -6,7 +6,10 @@ const state = {
   events: [],
   currentPairCode: null,
   eventSocket: null,
-  captureBaseImage: null
+  captureBaseImage: null,
+  bleStatus: null,
+  lastBleTransfer: null,
+  lastCaptureItem: null
 };
 
 const elements = {
@@ -42,6 +45,11 @@ const elements = {
   detailCard: document.querySelector("#detailCard"),
   sendPhone: document.querySelector("#sendPhone"),
   exportKnowledge: document.querySelector("#exportKnowledge"),
+  demoBoundPhone: document.querySelector("#demoBoundPhone"),
+  demoBluetoothTransfer: document.querySelector("#demoBluetoothTransfer"),
+  demoRssi: document.querySelector("#demoRssi"),
+  demoLockState: document.querySelector("#demoLockState"),
+  demoLastCapture: document.querySelector("#demoLastCapture"),
   shareList: document.querySelector("#shareList"),
   shareTotal: document.querySelector("#shareTotal"),
   eventLog: document.querySelector("#eventLog"),
@@ -73,6 +81,11 @@ await loadHealth();
 await createPairing({ silent: true });
 setupCaptureCanvas();
 await refreshAll();
+window.setInterval(() => {
+  if (state.currentPairCode) {
+    void loadBleStatus();
+  }
+}, 3000);
 
 async function api(path, options = {}) {
   const headers = new Headers(options.headers ?? {});
@@ -92,6 +105,7 @@ async function loadHealth() {
   const data = await api("/health");
   state.trust = data.trust;
   renderTrust();
+  renderDemoMode();
 }
 
 async function createPairing(options = {}) {
@@ -121,8 +135,10 @@ async function copyPairingPayload() {
 
 async function loadBleStatus() {
   const data = await api("/api/ble/status");
+  state.bleStatus = data;
   state.trust = trustFromBleStatus(data);
   renderTrust();
+  renderDemoMode();
 }
 
 async function loadItems() {
@@ -207,8 +223,10 @@ async function setBleDemoStatus(status) {
       rssi: rssiByStatus[status]
     })
   });
+  state.bleStatus = data;
   state.trust = trustFromBleStatus(data);
   renderTrust();
+  renderDemoMode();
 }
 
 async function captureScreen() {
@@ -299,9 +317,11 @@ async function saveCapture() {
   form.set("title", filename);
   form.set("tags", JSON.stringify(["capture", "annotation"]));
   form.set("file", blob, filename);
-  await api("/api/items/upload", { method: "POST", body: form });
+  const result = await api("/api/items/upload", { method: "POST", body: form });
+  state.lastCaptureItem = result.item;
   logEvent(`Saved ${filename}`);
   elements.captureStudio.hidden = true;
+  renderDemoMode();
   await loadItems();
 }
 
@@ -327,7 +347,9 @@ async function sendSelectedToPhone() {
   }
 
   const result = await api(`/api/ble/send/${selected.id}`, { method: "POST" });
+  state.lastBleTransfer = result.transfer;
   logEvent(`Bluetooth ${result.transfer.status}: ${selected.title}`);
+  renderDemoMode();
   await refreshAll();
 }
 
@@ -377,8 +399,13 @@ function connectEvents() {
     } else if (message.type === "pairing.connected") {
       logEvent("Pairing channel connected");
     } else if (message.type === "ble.status") {
+      state.bleStatus = {
+        ...(state.bleStatus ?? {}),
+        ...data
+      };
       state.trust = trustFromBleStatus(data);
       renderTrust();
+      renderDemoMode();
       logEvent(state.trust.trusted ? "Phone trusted" : "Phone away");
     }
   });
@@ -404,6 +431,17 @@ function renderTrust() {
   elements.trustCard.classList.toggle("trusted", trust.trusted);
   elements.trustTitle.textContent = trust.trusted ? "Trusted" : "Locked";
   elements.trustReason.textContent = trust.reason;
+}
+
+function renderDemoMode() {
+  const ble = state.bleStatus;
+  elements.demoBoundPhone.textContent = ble?.deviceName ?? (state.currentPairCode ? "Paired phone" : "Not paired");
+  elements.demoBluetoothTransfer.textContent = state.lastBleTransfer
+    ? `${state.lastBleTransfer.status} ${state.lastBleTransfer.itemId}`
+    : "Idle";
+  elements.demoRssi.textContent = typeof ble?.rssi === "number" ? `${ble.rssi} dBm` : "-- dBm";
+  elements.demoLockState.textContent = ble?.lockState ?? (state.trust?.trusted ? "unlocked" : "locked");
+  elements.demoLastCapture.textContent = state.lastCaptureItem?.title ?? "No capture saved";
 }
 
 function renderShares() {

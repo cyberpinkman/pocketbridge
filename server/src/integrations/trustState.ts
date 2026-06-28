@@ -11,6 +11,7 @@ export interface BleStatus {
   deviceName: string;
   rssi?: number;
   lockState?: "unlocked" | "away" | "locked";
+  lastSignalAt?: string;
   updatedAt: string;
 }
 
@@ -40,6 +41,7 @@ export function setTrustState(trusted: boolean, reason: string): TrustState {
 }
 
 export function getBleStatus(): BleStatus {
+  applyBleSignalTimeouts();
   return currentBleStatus;
 }
 
@@ -65,7 +67,56 @@ export function setBleStatus(
 }
 
 export function setBleRssi(deviceName: string, rssi: number): BleStatus {
-  return setBleStatus(statusFromRssi(rssi), deviceName, rssi);
+  const status = setBleStatus(statusFromRssi(rssi), deviceName, rssi);
+  currentBleStatus = {
+    ...status,
+    lastSignalAt: status.updatedAt
+  };
+  return currentBleStatus;
+}
+
+function applyBleSignalTimeouts(): void {
+  if (!currentBleStatus.lastSignalAt) {
+    return;
+  }
+
+  const lastSignalMs = Date.parse(currentBleStatus.lastSignalAt);
+  if (Number.isNaN(lastSignalMs)) {
+    return;
+  }
+
+  const ageMs = Date.now() - lastSignalMs;
+  const lockMs = envDuration("PB_BLE_LOCK_MS", 20_000);
+  const awayMs = Math.min(envDuration("PB_BLE_AWAY_MS", 10_000), lockMs);
+  let nextStatus: BleStatusValue | null = null;
+
+  if (ageMs >= lockMs) {
+    nextStatus = "locked";
+  } else if (ageMs >= awayMs && currentBleStatus.status === "trusted") {
+    nextStatus = "away";
+  }
+
+  if (!nextStatus) {
+    return;
+  }
+
+  const updatedAt = new Date().toISOString();
+  currentBleStatus = {
+    ...currentBleStatus,
+    status: nextStatus,
+    lockState: lockStateFromStatus(nextStatus),
+    updatedAt
+  };
+  currentTrustState = {
+    trusted: false,
+    reason: `BLE status: ${nextStatus}`,
+    updatedAt
+  };
+}
+
+function envDuration(name: string, fallbackMs: number): number {
+  const parsed = Number(process.env[name]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackMs;
 }
 
 function statusFromRssi(rssi: number): BleStatusValue {

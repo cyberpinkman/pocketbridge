@@ -21,6 +21,15 @@ test("Mac Web UI targets the upstream PocketBridge API contract", async () => {
   assert.match(app, /trustLocked/);
   assert.match(app, /setBleDemoStatus\("locked"\)/);
   assert.match(app, /locked: -96/);
+  assert.match(html, /Demo Mode/);
+  assert.match(html, /id="demoBoundPhone"/);
+  assert.match(html, /id="demoBluetoothTransfer"/);
+  assert.match(html, /id="demoRssi"/);
+  assert.match(html, /id="demoLockState"/);
+  assert.match(html, /id="demoLastCapture"/);
+  assert.match(app, /renderDemoMode/);
+  assert.match(app, /lastBleTransfer/);
+  assert.match(app, /lastCaptureItem/);
   assert.match(html, /PocketKey/);
   assert.match(html, /Capture Studio/);
   assert.match(html, /id="screenCapture"/);

@@ -28,8 +28,10 @@ test("Mobile browser fallback targets the upstream PocketBridge API contract", a
   assert.match(script, /\/api\/ble\/status/);
   assert.match(script, /\/api\/ble\/rssi/);
   assert.match(script, /startPocketKeyHeartbeat/);
+  assert.match(script, /5000/);
   assert.match(script, /setPocketKeyStatus/);
   assert.match(script, /sendPocketKeyRssi/);
+  assert.match(script, /sendPocketKeyRssi\(\{ quiet: true \}\)/);
   assert.match(script, /PocketBridge Phone/);
   assert.match(script, /wsUrl/);
   assert.match(script, /client=mobile/);
