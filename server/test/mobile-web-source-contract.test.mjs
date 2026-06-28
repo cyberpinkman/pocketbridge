@@ -12,6 +12,9 @@ test("Mobile browser fallback targets the upstream PocketBridge API contract", a
   assert.match(html, /PocketBridge Mobile/);
   assert.match(html, /id="textForm"/);
   assert.match(html, /id="fileForm"/);
+  assert.match(html, /PocketKey/);
+  assert.match(html, /id="trustPhone"/);
+  assert.match(html, /id="awayPhone"/);
   assert.match(html, /id="items"/);
   assert.match(html, /src="\/mobile\.js"/);
 
@@ -20,6 +23,10 @@ test("Mobile browser fallback targets the upstream PocketBridge API contract", a
   assert.match(script, /\/api\/items\/text/);
   assert.match(script, /\/api\/items\/upload/);
   assert.match(script, /\/api\/items\?sharedToMobile=true/);
+  assert.match(script, /\/api\/ble\/status/);
+  assert.match(script, /startPocketKeyHeartbeat/);
+  assert.match(script, /setPocketKeyStatus/);
+  assert.match(script, /PocketBridge Phone/);
   assert.match(script, /wsUrl/);
   assert.match(script, /client=mobile/);
   assert.doesNotMatch(script, /fetch\([^)]*["']\/upload/);

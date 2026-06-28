@@ -22,8 +22,8 @@ Expected automated status:
 
 ## Project Status Gate
 
-- Automated MVP confidence: 96%.
-- Remaining scope: device and app integration checks that cannot be proven from this Mac alone.
+- Automated MVP confidence: 97%.
+- Remaining scope: device checks that cannot be proven from this Mac alone.
 - Stop condition: every required row below has an owner, date, evidence, and pass/fail result.
 
 ## Flutter Workstation
@@ -90,59 +90,65 @@ Fallback path:
 
 - If Flutter is blocked, open `http://<Mac-LAN-IP>:3000/mobile.html` on the phone and run the same upload/share/download path.
 
-## Snapzy Integration
+## Built-in Capture Studio
 
 Preflight:
 
 ```bash
-mkdir -p data/watch/snapzy
 npm run start
 ```
 
 Manual steps:
 
-1. Capture or annotate a screenshot in Snapzy.
-2. Export or copy the result into `data/watch/snapzy`.
-3. Watch the Mac PocketInbox list.
-4. Select the imported item.
-5. Export it to the knowledge base.
+1. Open the Mac UI at `http://<Mac-LAN-IP>:3000/`.
+2. Click `Capture screen`.
+3. Choose a screen or window from the browser permission sheet.
+4. Draw one visible annotation on the capture canvas.
+5. Click `Save capture`.
+6. Select the saved capture and export it to the knowledge base.
 
 Pass criteria:
 
-- Item appears with Snapzy origin.
+- Item appears with `PocketBridge Capture` as the source device.
 - File is copied into `data/inbox/YYYY-MM-DD/<itemId>/original`.
 - Knowledge export writes Markdown under `data/obsidian/PocketBridge/inbox`.
 - Attached asset is copied under `data/obsidian/PocketBridge/assets/pocketbridge`.
 
 Evidence to save:
 
-- Original Snapzy file name.
+- Screenshot permission sheet or Capture Studio clip.
 - PocketInbox item id.
 - Generated Markdown path.
 
-## BLEUnlock Integration
+## Standalone PocketKey
 
-Script bridge:
+Required setup:
 
-```bash
-PB_PAIR_CODE=<pair-code> ./integrations/bleunlock/pocketkey-status.sh trusted -49
-PB_PAIR_CODE=<pair-code> ./integrations/bleunlock/pocketkey-status.sh away -82
-PB_PAIR_CODE=<pair-code> ./integrations/bleunlock/pocketkey-status.sh locked
-```
+- Mac and phone are on the same network.
+- Phone opens `http://<Mac-LAN-IP>:3000/mobile.html`.
+- Phone is paired with the Mac.
 
 Manual steps:
 
-1. Configure BLEUnlock event hooks to call `integrations/bleunlock/pocketkey-status.sh`.
-2. Move phone near the Mac and trigger a trusted event.
-3. Move phone away and trigger an away event.
-4. Trigger or simulate a locked event.
-5. Watch Mac Web PocketKey state and WebSocket event log.
+1. Tap `Trust this phone` on the phone page.
+2. Watch Mac Web PocketKey switch to trusted.
+3. Tap `Mark phone away` on the phone page.
+4. Watch Mac Web PocketKey switch away/locked.
+5. Click `Lock Mac` in the Mac UI to demonstrate the locked state.
 
 Pass criteria:
 
 - `trusted`, `away`, and `locked` states are accepted by `/api/ble/status`.
 - Mac UI updates PocketKey state for each event.
 - WebSocket clients receive BLE status updates.
+
+## Third-party Compatibility
+
+These are optional compatibility checks, not final-demo requirements:
+
+- Snapzy can still export files into `data/watch/snapzy` for folder import.
+- BLEUnlock can still call `integrations/bleunlock/pocketkey-status.sh`.
+- Neither app needs to be opened during the final PocketBridge standalone demo.
 
 ## BLE Capsule Text Proof
 
@@ -166,8 +172,9 @@ Pass criteria:
 | Automated baseline |  |  |  |  |
 | Flutter workstation |  |  |  |  |
 | Physical phone LAN/QR |  |  |  |  |
-| Snapzy integration |  |  |  |  |
-| BLEUnlock integration |  |  |  |  |
+| Built-in Capture Studio |  |  |  |  |
+| Standalone PocketKey |  |  |  |  |
+| Third-party compatibility |  |  |  |  |
 | BLE Capsule text proof |  |  |  |  |
 
 ## Release Decision
@@ -176,6 +183,6 @@ Ready to mark MVP demo complete when:
 
 - Automated baseline is green.
 - Flutter or browser fallback path is demonstrated on a physical phone.
-- Snapzy import is demonstrated with one real exported capture.
-- BLEUnlock or the script bridge demonstrates trusted, away, and locked states.
+- Built-in Capture Studio creates one annotated capture without opening Snapzy.
+- Standalone PocketKey demonstrates trusted, away, and locked states without opening BLEUnlock.
 - Knowledge export produces an Obsidian-readable Markdown note with expected content and asset links.

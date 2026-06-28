@@ -1,6 +1,7 @@
 const state = {
   pairing: null,
   socket: null,
+  pocketKeyTimer: null,
   sourceDevice: navigator.userAgent.includes("iPhone") ? "PocketBridge iPhone" : "PocketBridge Phone"
 };
 
@@ -13,6 +14,9 @@ const elements = {
   textBody: document.querySelector("#textBody"),
   fileForm: document.querySelector("#fileForm"),
   fileInput: document.querySelector("#fileInput"),
+  pocketKeyStatus: document.querySelector("#pocketKeyStatus"),
+  trustPhone: document.querySelector("#trustPhone"),
+  awayPhone: document.querySelector("#awayPhone"),
   items: document.querySelector("#items"),
   refresh: document.querySelector("#refresh")
 };
@@ -20,6 +24,8 @@ const elements = {
 elements.refresh.addEventListener("click", () => runAction("Refresh", elements.refresh, loadSharedItems));
 elements.textForm.addEventListener("submit", uploadText);
 elements.fileForm.addEventListener("submit", uploadFile);
+elements.trustPhone.addEventListener("click", () => runAction("PocketKey", elements.trustPhone, () => setPocketKeyStatus("trusted")));
+elements.awayPhone.addEventListener("click", () => runAction("PocketKey", elements.awayPhone, () => setPocketKeyStatus("away")));
 
 function authHeaders(json = true) {
   return {
@@ -70,6 +76,7 @@ function connectSocket() {
       void loadSharedItems();
     }
   });
+  startPocketKeyHeartbeat();
 }
 
 async function uploadText(event) {
@@ -122,6 +129,35 @@ async function uploadFile(event) {
 async function loadSharedItems() {
   const payload = await api("/api/items?sharedToMobile=true");
   renderItems(payload.items);
+}
+
+function startPocketKeyHeartbeat() {
+  window.clearInterval(state.pocketKeyTimer);
+  void setPocketKeyStatus("trusted", { quiet: true });
+  state.pocketKeyTimer = window.setInterval(() => {
+    void setPocketKeyStatus("trusted", { quiet: true });
+  }, 10000);
+}
+
+async function setPocketKeyStatus(status, options = {}) {
+  const rssiByStatus = {
+    trusted: -45,
+    away: -84
+  };
+  const payload = await api("/api/ble/status", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      status,
+      deviceName: state.sourceDevice,
+      rssi: rssiByStatus[status]
+    })
+  });
+
+  elements.pocketKeyStatus.textContent = `${payload.deviceName} ${payload.status}`;
+  if (!options.quiet) {
+    setStatus(status === "trusted" ? "Phone is trusted by Mac" : "Phone marked away");
+  }
 }
 
 function renderItems(items) {

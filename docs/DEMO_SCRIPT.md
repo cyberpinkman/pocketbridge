@@ -19,11 +19,11 @@ Implemented and verified locally:
 - Searchable PocketInbox in the Mac UI.
 - Read-only demo API views: `GET /api/inbox` and `GET /api/search?q=...`.
 - Knowledge export into `data/obsidian/PocketBridge/`.
-- Snapzy watch-folder import from `data/watch/snapzy/`.
-- PocketKey demo states through `/api/ble/status`: `trusted`, `away`, `locked`.
-- Optional BLEUnlock event-script bridge: `integrations/bleunlock/pocketkey-status.sh`.
+- Built-in Capture Studio using browser `getDisplayMedia`, canvas annotation, and direct PocketInbox upload.
+- Standalone PocketKey states through the paired phone page and `/api/ble/status`: `trusted`, `away`, `locked`.
 - Optional BLE Capsule text bridge: `integrations/ble-capsule/capsule-text.sh`.
 - Mobile browser fallback at `/mobile.html` for the current machine when Flutter/Dart are unavailable.
+- Third-party Snapzy and BLEUnlock bridges remain compatibility paths only; they are not required for the final demo.
 
 Still demo/future-facing:
 
@@ -46,7 +46,7 @@ This checks the core path in one command:
 - phone file upload
 - Mac-to-phone share and download
 - Markdown knowledge export
-- Snapzy watch-folder auto-import
+- built-in Capture Studio screenshot and annotation flow
 - PocketKey status flow: `trusted -> away -> locked`
 
 If this fails, use the failure output as the pre-demo fix list.
@@ -64,7 +64,7 @@ The startup log prints:
 
 - Mac UI URL
 - mobile browser fallback URL
-- Snapzy watch folder
+- built-in Capture Studio in the Mac UI
 - LAN URL candidates
 
 For a physical phone, pick the LAN URL that is reachable from the phone. If the printed LAN candidate is wrong, restart with:
@@ -130,22 +130,22 @@ Expected signs:
 - The item detail shows a knowledge path.
 - The Markdown contains `## Summary`, `## Content`, source frontmatter, and any attached asset link.
 
-## 5. Snapzy Import
+## 5. Built-in Capture Studio
 
-Save or copy a screenshot into:
+In the Mac UI:
 
-```text
-data/watch/snapzy/
-```
+1. Click `Capture screen`.
+2. Choose a screen or window in the browser permission sheet.
+3. Draw on the captured image in Capture Studio.
+4. Click `Save capture`.
 
 Expected signs:
 
-- The running server auto-imports the new file.
-- PocketInbox shows the Snapzy item.
+- PocketInbox shows a new image item from `PocketBridge Capture`.
+- The file is stored under `data/inbox/YYYY-MM-DD/<itemId>/original`.
+- The item can be sent to the phone and exported to the knowledge base.
 
-Fallback:
-
-- Click `Import Snapzy folder` in the Mac UI.
+This replaces the Snapzy dependency for the final demo. The Snapzy watch-folder bridge can still be used as a compatibility adapter after the standalone demo is green.
 
 ## 6. Mac To Phone
 
@@ -166,11 +166,16 @@ Expected signs:
 
 ## 7. PocketKey
 
-Use the BLE Trust Status panel in the Mac UI:
+Use the paired phone page first:
 
-1. Click `Trust nearby`.
-2. Click `Mark away`.
-3. Click `Mark locked`.
+1. Open `http://<Mac-LAN-IP>:3000/mobile.html` on the phone.
+2. Pair it with the Mac.
+3. Tap `Trust this phone`.
+4. Watch the Mac PocketKey panel switch to trusted.
+5. Tap `Mark phone away`.
+6. Click `Lock Mac` in the Mac UI for the locked state.
+
+The Mac UI also has manual PocketKey buttons for rehearsal, but the primary demo signal comes from PocketBridge Mobile itself.
 
 Expected status flow:
 
@@ -178,9 +183,9 @@ Expected status flow:
 trusted -> away -> locked
 ```
 
-This demonstrates the BLEUnlock state API without requiring the real BLE bridge during the demo.
+This demonstrates PocketBridge's standalone phone-key loop without requiring BLEUnlock during the demo.
 
-Optional BLEUnlock event hook:
+Optional BLEUnlock compatibility hook:
 
 ```bash
 PB_PAIR_CODE=<pair-code> ./integrations/bleunlock/pocketkey-status.sh trusted -49
@@ -188,7 +193,7 @@ PB_PAIR_CODE=<pair-code> ./integrations/bleunlock/pocketkey-status.sh away -82
 PB_PAIR_CODE=<pair-code> ./integrations/bleunlock/pocketkey-status.sh locked
 ```
 
-The script posts to `/api/ble/status`, so it uses the same WebSocket update path as the Mac UI controls.
+The script posts to `/api/ble/status`, so it uses the same WebSocket update path as the standalone PocketKey controls.
 
 ## 8. MCP / API Showcase
 
@@ -219,10 +224,10 @@ If Flutter is blocked:
 - Use `http://<Mac-LAN-IP>:3000/mobile.html`.
 - State clearly that local `flutter` and `dart` commands are unavailable on this machine, but the API contract and browser fallback are verified.
 
-If Snapzy automation is blocked:
+If browser screen capture is blocked:
 
-- Copy a file manually into `data/watch/snapzy/`.
-- Click `Import Snapzy folder` if auto-import does not fire quickly.
+- Use the built-in file upload control to upload a screenshot image.
+- Keep the demo wording as PocketBridge Capture, not Snapzy.
 
 If the phone cannot reach the Mac:
 

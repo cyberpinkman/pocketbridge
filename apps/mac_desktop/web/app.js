@@ -5,7 +5,8 @@ const state = {
   trust: null,
   events: [],
   currentPairCode: null,
-  eventSocket: null
+  eventSocket: null,
+  captureBaseImage: null
 };
 
 const elements = {
@@ -29,7 +30,12 @@ const elements = {
   fileInput: document.querySelector("#fileInput"),
   selectedFileName: document.querySelector("#selectedFileName"),
   fileUpload: document.querySelector("#fileUpload"),
-  snapzyImport: document.querySelector("#snapzyImport"),
+  screenCapture: document.querySelector("#screenCapture"),
+  captureStudio: document.querySelector("#captureStudio"),
+  captureCanvas: document.querySelector("#captureCanvas"),
+  saveCapture: document.querySelector("#saveCapture"),
+  clearCapture: document.querySelector("#clearCapture"),
+  closeCapture: document.querySelector("#closeCapture"),
   itemList: document.querySelector("#itemList"),
   itemTotal: document.querySelector("#itemTotal"),
   updatedAt: document.querySelector("#updatedAt"),
@@ -49,7 +55,10 @@ elements.searchInput.addEventListener("input", renderItems);
 elements.quickUpload.addEventListener("click", quickUpload);
 elements.fileInput.addEventListener("change", updateSelectedFile);
 elements.fileUpload.addEventListener("click", uploadSelectedFile);
-elements.snapzyImport.addEventListener("click", importSnapzyFolder);
+elements.screenCapture.addEventListener("click", captureScreen);
+elements.saveCapture.addEventListener("click", saveCapture);
+elements.clearCapture.addEventListener("click", clearCaptureInk);
+elements.closeCapture.addEventListener("click", closeCaptureStudio);
 elements.trustOn.addEventListener("click", () => setBleDemoStatus("trusted"));
 elements.trustOff.addEventListener("click", () => setBleDemoStatus("away"));
 elements.trustLocked.addEventListener("click", () => setBleDemoStatus("locked"));
@@ -62,6 +71,7 @@ elements.clearLog.addEventListener("click", () => {
 
 await loadHealth();
 await createPairing({ silent: true });
+setupCaptureCanvas();
 await refreshAll();
 
 async function api(path, options = {}) {
@@ -182,12 +192,6 @@ async function uploadSelectedFile() {
   await loadItems();
 }
 
-async function importSnapzyFolder() {
-  const result = await api("/snapzy/import", { method: "POST" });
-  logEvent(`Imported ${result.items.length} Snapzy item${result.items.length === 1 ? "" : "s"}`);
-  await loadItems();
-}
-
 async function setBleDemoStatus(status) {
   const rssiByStatus = {
     trusted: -49,
@@ -205,6 +209,115 @@ async function setBleDemoStatus(status) {
   });
   state.trust = trustFromBleStatus(data);
   renderTrust();
+}
+
+async function captureScreen() {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    logEvent("Screen capture is not available in this browser");
+    return;
+  }
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    const video = document.createElement("video");
+    video.srcObject = stream;
+    await video.play();
+    drawVideoFrame(video);
+    elements.captureStudio.hidden = false;
+    logEvent("Screen captured; draw on the image to annotate");
+  } catch (error) {
+    logEvent(error instanceof Error ? error.message : "Screen capture cancelled");
+  } finally {
+    for (const track of stream?.getTracks?.() ?? []) {
+      track.stop();
+    }
+  }
+}
+
+function drawVideoFrame(video) {
+  const canvas = elements.captureCanvas;
+  const context = canvas.getContext("2d");
+  const width = video.videoWidth || canvas.width;
+  const height = video.videoHeight || canvas.height;
+  const scale = Math.min(960 / width, 540 / height, 1);
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  state.captureBaseImage = context.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+function setupCaptureCanvas() {
+  const canvas = elements.captureCanvas;
+  const context = canvas.getContext("2d");
+  let drawing = false;
+
+  canvas.addEventListener("pointerdown", (event) => {
+    drawing = true;
+    canvas.setPointerCapture(event.pointerId);
+    const point = canvasPoint(event);
+    context.beginPath();
+    context.moveTo(point.x, point.y);
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    if (!drawing) {
+      return;
+    }
+    const point = canvasPoint(event);
+    context.lineWidth = 6;
+    context.lineCap = "round";
+    context.strokeStyle = "#ff4d4f";
+    context.lineTo(point.x, point.y);
+    context.stroke();
+  });
+
+  canvas.addEventListener("pointerup", () => {
+    drawing = false;
+  });
+}
+
+function canvasPoint(event) {
+  const rect = elements.captureCanvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * (elements.captureCanvas.width / rect.width),
+    y: (event.clientY - rect.top) * (elements.captureCanvas.height / rect.height)
+  };
+}
+
+async function saveCapture() {
+  const blob = await new Promise((resolve) => elements.captureCanvas.toBlob(resolve, "image/png"));
+  if (!blob) {
+    logEvent("Capture is empty");
+    return;
+  }
+
+  const filename = `pocketbridge-capture-${Date.now()}.png`;
+  const form = new FormData();
+  form.set("origin", "mac");
+  form.set("sourceDevice", "PocketBridge Capture");
+  form.set("title", filename);
+  form.set("tags", JSON.stringify(["capture", "annotation"]));
+  form.set("file", blob, filename);
+  await api("/api/items/upload", { method: "POST", body: form });
+  logEvent(`Saved ${filename}`);
+  elements.captureStudio.hidden = true;
+  await loadItems();
+}
+
+function clearCaptureInk() {
+  const canvas = elements.captureCanvas;
+  const context = canvas.getContext("2d");
+  if (state.captureBaseImage) {
+    context.putImageData(state.captureBaseImage, 0, 0);
+  } else {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  logEvent("Capture cleared");
+}
+
+function closeCaptureStudio() {
+  elements.captureStudio.hidden = true;
 }
 
 async function sendSelectedToPhone() {

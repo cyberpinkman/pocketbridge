@@ -408,6 +408,42 @@ svg {
   margin-bottom: 16px;
 }
 
+.capture-studio {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.capture-studio[hidden] {
+  display: none;
+}
+
+.capture-studio-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.capture-studio-head h3 {
+  margin: 4px 0 0;
+  font-size: 16px;
+}
+
+.capture-studio canvas {
+  width: 100%;
+  max-height: 56vh;
+  display: block;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #fff;
+  touch-action: none;
+}
+
 .capture-stack {
   display: grid;
   gap: 10px;
@@ -629,7 +665,9 @@ svg {
   .app-shell,
   .pane-header,
   .quick-capture,
-  .capture-actions {
+  .capture-actions,
+  .capture-studio-head,
+  .mobile-button-row {
     display: block;
   }
 
