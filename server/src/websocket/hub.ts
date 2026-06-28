@@ -39,14 +39,18 @@ export function attachWebsocket(server: Server): WebSocketServer {
   });
 
   upstreamWebsocketServer.on("connection", (socket, request) => {
-    void validateUpstreamConnection(request.url ?? "").then((result) => {
-      if (!result.ok) {
-        socket.close(1008, result.reason);
-        return;
-      }
+    void validateUpstreamConnection(request.url ?? "")
+      .then((result) => {
+        if (!result.ok) {
+          socket.close(1008, result.reason);
+          return;
+        }
 
-      socket.send(JSON.stringify(createEnvelope("pairing.connected", { client: result.client })));
-    });
+        socket.send(JSON.stringify(createEnvelope("pairing.connected", { client: result.client })));
+      })
+      .catch(() => {
+        socket.close(1011, "WebSocket validation failed");
+      });
   });
 
   legacyWebsocketServer.on("close", () => {

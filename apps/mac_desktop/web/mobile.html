@@ -26,6 +26,20 @@
       </section>
 
       <section class="panel mobile-panel">
+        <div class="section-label">PocketKey</div>
+        <p class="muted" id="pocketKeyStatus">Phone key not active</p>
+        <label class="signal-control">
+          <span>Bluetooth RSSI</span>
+          <input id="rssiInput" type="range" min="-100" max="-35" value="-50" />
+          <strong id="rssiValue">-50 dBm</strong>
+        </label>
+        <div class="button-row mobile-button-row">
+          <button class="primary-button" id="trustPhone">Trust this phone</button>
+          <button class="secondary-button" id="awayPhone">Mark phone away</button>
+        </div>
+      </section>
+
+      <section class="panel mobile-panel">
         <div class="section-label">Send to Mac</div>
         <form id="textForm" class="mobile-stack">
           <input id="textTitle" name="title" placeholder="Title" />

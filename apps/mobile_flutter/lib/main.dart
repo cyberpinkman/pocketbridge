@@ -12,6 +12,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'pocket_api.dart';
 import 'pocket_models.dart';
+import 'real_ble_client.dart';
 import 'upload_history.dart';
 
 const _pairingPrefsKey = 'pocketbridge.pairing';
@@ -53,6 +54,7 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
   final _manualServerController = TextEditingController();
   final _titleController = TextEditingController(text: 'Phone note');
   final _textController = TextEditingController();
+  final RealBleClient _realBleClient = RealBleClient();
 
   PairingInfo? _pairing;
   PocketBridgeApi? _api;
@@ -85,10 +87,10 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
     _titleController.dispose();
     _textController.dispose();
     _disconnectSocket();
+    unawaited(_realBleClient.stopDemo());
     _api?.close();
     super.dispose();
   }
-
   Future<void> _loadStoredPairing() async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = prefs.getString(_pairingPrefsKey);
@@ -429,6 +431,22 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
     });
   }
 
+  Future<void> _startRealBleDemo() async {
+    await _run(() async {
+      final message = await _realBleClient.startDemo(deviceName: _sourceDevice);
+      if (!mounted) return;
+      setState(() => _status = message);
+    });
+  }
+
+  Future<void> _stopRealBleDemo() async {
+    await _run(() async {
+      final message = await _realBleClient.stopDemo();
+      if (!mounted) return;
+      setState(() => _status = message);
+    });
+  }
+
   Future<void> _run(Future<void> Function() action, {bool busy = true}) async {
     if (busy) setState(() => _busy = true);
     try {
@@ -487,6 +505,8 @@ class _PocketBridgeHomeState extends State<PocketBridgeHome> {
         downloadProgressByItem: _downloadProgressByItem,
         onRefresh: () => _loadSharedItems(),
         onDownload: _downloadItem,
+        onStartBleDemo: _startRealBleDemo,
+        onStopBleDemo: _stopRealBleDemo,
       ),
       _PairingPage(
         pairing: _pairing,
@@ -744,6 +764,8 @@ class SharedPage extends StatelessWidget {
     required this.downloadProgressByItem,
     required this.onRefresh,
     required this.onDownload,
+    required this.onStartBleDemo,
+    required this.onStopBleDemo,
   });
 
   final bool paired;
@@ -752,6 +774,8 @@ class SharedPage extends StatelessWidget {
   final Map<String, double?> downloadProgressByItem;
   final Future<void> Function() onRefresh;
   final ValueChanged<PocketItem> onDownload;
+  final VoidCallback onStartBleDemo;
+  final VoidCallback onStopBleDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -764,12 +788,23 @@ class SharedPage extends StatelessWidget {
     }
 
     if (items.isEmpty) {
-      return _EmptyState(
-        icon: Icons.folder_shared_outlined,
-        title: 'No shared files',
-        body: 'Tap refresh after marking a Mac file as shared.',
-        actionLabel: 'Refresh',
-        onAction: busy ? null : () => unawaited(onRefresh()),
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _RealBleControls(
+            busy: busy,
+            onStart: onStartBleDemo,
+            onStop: onStopBleDemo,
+          ),
+          const SizedBox(height: 24),
+          _EmptyState(
+            icon: Icons.folder_shared_outlined,
+            title: 'No shared files',
+            body: 'Tap refresh after marking a Mac file as shared.',
+            actionLabel: 'Refresh',
+            onAction: busy ? null : () => unawaited(onRefresh()),
+          ),
+        ],
       );
     }
 
@@ -778,7 +813,14 @@ class SharedPage extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.all(12),
         itemBuilder: (context, index) {
-          final item = items[index];
+          if (index == 0) {
+            return _RealBleControls(
+              busy: busy,
+              onStart: onStartBleDemo,
+              onStop: onStopBleDemo,
+            );
+          }
+          final item = items[index - 1];
           final downloading = downloadProgressByItem.containsKey(item.id);
           final downloadProgress = downloadProgressByItem[item.id];
           return ListTile(
@@ -818,8 +860,41 @@ class SharedPage extends StatelessWidget {
           );
         },
         separatorBuilder: (context, index) => const Divider(height: 1),
-        itemCount: items.length,
+        itemCount: items.length + 1,
       ),
+    );
+  }
+}
+
+class _RealBleControls extends StatelessWidget {
+  const _RealBleControls({
+    required this.busy,
+    required this.onStart,
+    required this.onStop,
+  });
+
+  final bool busy;
+  final VoidCallback onStart;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: busy ? null : onStart,
+            icon: const Icon(Icons.bluetooth_connected),
+            label: const Text('Start BLE Demo'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: busy ? null : onStop,
+          icon: const Icon(Icons.bluetooth_disabled),
+          label: const Text('Stop BLE'),
+        ),
+      ],
     );
   }
 }

@@ -18,3 +18,4 @@ tmp/
 apps/mobile_flutter/.dart_tool/
 apps/mobile_flutter/build/
 apps/mac_desktop/build/
+integrations/real-ble-agent/mac-agent/.build/

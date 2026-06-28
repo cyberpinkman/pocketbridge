@@ -408,6 +408,42 @@ svg {
   margin-bottom: 16px;
 }
 
+.capture-studio {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.capture-studio[hidden] {
+  display: none;
+}
+
+.capture-studio-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.capture-studio-head h3 {
+  margin: 4px 0 0;
+  font-size: 16px;
+}
+
+.capture-studio canvas {
+  width: 100%;
+  max-height: 56vh;
+  display: block;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #fff;
+  touch-action: none;
+}
+
 .capture-stack {
   display: grid;
   gap: 10px;
@@ -540,6 +576,46 @@ svg {
   padding: 16px;
 }
 
+.demo-mode {
+  margin-bottom: 18px;
+}
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.demo-grid div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.demo-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.demo-grid span,
+.demo-grid strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.demo-grid span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.demo-grid strong {
+  margin-top: 4px;
+  color: #273340;
+  font-size: 13px;
+}
+
 .event-head {
   display: flex;
   align-items: center;
@@ -629,7 +705,9 @@ svg {
   .app-shell,
   .pane-header,
   .quick-capture,
-  .capture-actions {
+  .capture-actions,
+  .capture-studio-head,
+  .mobile-button-row {
     display: block;
   }
 
@@ -722,6 +800,28 @@ svg {
   display: grid;
   gap: 10px;
   margin-top: 12px;
+}
+
+.signal-control {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.signal-control span {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.signal-control input {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.signal-control strong {
+  color: var(--accent-dark);
 }
 
 .mobile-stack input,

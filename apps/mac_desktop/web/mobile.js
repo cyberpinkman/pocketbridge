@@ -1,6 +1,7 @@
 const state = {
   pairing: null,
   socket: null,
+  pocketKeyTimer: null,
   sourceDevice: navigator.userAgent.includes("iPhone") ? "PocketBridge iPhone" : "PocketBridge Phone"
 };
 
@@ -13,6 +14,11 @@ const elements = {
   textBody: document.querySelector("#textBody"),
   fileForm: document.querySelector("#fileForm"),
   fileInput: document.querySelector("#fileInput"),
+  pocketKeyStatus: document.querySelector("#pocketKeyStatus"),
+  rssiInput: document.querySelector("#rssiInput"),
+  rssiValue: document.querySelector("#rssiValue"),
+  trustPhone: document.querySelector("#trustPhone"),
+  awayPhone: document.querySelector("#awayPhone"),
   items: document.querySelector("#items"),
   refresh: document.querySelector("#refresh")
 };
@@ -20,6 +26,10 @@ const elements = {
 elements.refresh.addEventListener("click", () => runAction("Refresh", elements.refresh, loadSharedItems));
 elements.textForm.addEventListener("submit", uploadText);
 elements.fileForm.addEventListener("submit", uploadFile);
+elements.rssiInput.addEventListener("input", updateRssiLabel);
+elements.rssiInput.addEventListener("change", () => runAction("PocketKey RSSI", elements.rssiInput, () => sendPocketKeyRssi()));
+elements.trustPhone.addEventListener("click", () => runAction("PocketKey", elements.trustPhone, () => setPocketKeyStatus("trusted")));
+elements.awayPhone.addEventListener("click", () => runAction("PocketKey", elements.awayPhone, () => setPocketKeyStatus("away")));
 
 function authHeaders(json = true) {
   return {
@@ -70,6 +80,7 @@ function connectSocket() {
       void loadSharedItems();
     }
   });
+  startPocketKeyHeartbeat();
 }
 
 async function uploadText(event) {
@@ -122,6 +133,57 @@ async function uploadFile(event) {
 async function loadSharedItems() {
   const payload = await api("/api/items?sharedToMobile=true");
   renderItems(payload.items);
+}
+
+function startPocketKeyHeartbeat() {
+  window.clearInterval(state.pocketKeyTimer);
+  void sendPocketKeyRssi({ quiet: true });
+  state.pocketKeyTimer = window.setInterval(() => {
+    void sendPocketKeyRssi({ quiet: true });
+  }, 5000);
+}
+
+async function setPocketKeyStatus(status, options = {}) {
+  const rssiByStatus = {
+    trusted: -45,
+    away: -84
+  };
+  const payload = await api("/api/ble/status", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      status,
+      deviceName: state.sourceDevice,
+      rssi: rssiByStatus[status]
+    })
+  });
+
+  elements.pocketKeyStatus.textContent = `${payload.deviceName} ${payload.status}`;
+  if (!options.quiet) {
+    setStatus(status === "trusted" ? "Phone is trusted by Mac" : "Phone marked away");
+  }
+}
+
+function updateRssiLabel() {
+  elements.rssiValue.textContent = `${elements.rssiInput.value} dBm`;
+}
+
+async function sendPocketKeyRssi(options = {}) {
+  updateRssiLabel();
+  const rssi = Number(elements.rssiInput.value);
+  const payload = await api("/api/ble/rssi", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      deviceName: state.sourceDevice,
+      rssi
+    })
+  });
+
+  elements.pocketKeyStatus.textContent = `${payload.deviceName} ${payload.lockState} (${payload.rssi} dBm)`;
+  if (!options.quiet) {
+    setStatus(payload.lockState === "unlocked" ? "Mac unlocked by Bluetooth signal" : "Mac locked by weak Bluetooth signal");
+  }
 }
 
 function renderItems(items) {

@@ -67,6 +67,8 @@ void main() {
             downloadProgressByItem: {item.id: 0.5},
             onRefresh: () async {},
             onDownload: (_) {},
+            onStartBleDemo: () {},
+            onStopBleDemo: () {},
           ),
         ),
       ),

@@ -5,8 +5,9 @@ import multer from "multer";
 import { nanoid } from "nanoid";
 import QRCode from "qrcode";
 import { config } from "../config.js";
+import { queueBleTransfer } from "../integrations/bleTransport.js";
 import { exportItemToMarkdown } from "../integrations/knowledgeBase.js";
-import { getBleStatus, setBleStatus, type BleStatusValue } from "../integrations/trustState.js";
+import { getBleStatus, setBleRssi, setBleStatus, type BleStatusValue } from "../integrations/trustState.js";
 import { publicBaseUrl } from "../startupInfo.js";
 import { addItem, addPairingSession, addShare, readMetadata, removeItem, updateItem } from "../storage/metadataStore.js";
 import type { PairingSession, PocketItem, PocketItemKind, PocketItemSource, ShareRequest } from "../types.js";
@@ -16,7 +17,13 @@ export const apiRouter = Router();
 
 const upload = multer({
   storage: multer.diskStorage({
-    destination: config.inboxDir,
+    destination: (_request, _file, callback) => {
+      const stagingDir = uploadStagingDir();
+      fs.mkdir(stagingDir, { recursive: true }).then(
+        () => callback(null, stagingDir),
+        (error) => callback(error as Error, stagingDir)
+      );
+    },
     filename: (_request, file, callback) => {
       const extension = path.extname(file.originalname);
       callback(null, `${Date.now()}-${nanoid()}${extension}`);
@@ -226,7 +233,7 @@ apiRouter.post("/items/upload", upload.single("file"), async (request, response,
       ? request.body.sourceDevice.trim()
       : "";
     if (!isUpstreamOrigin(origin) || !sourceDevice) {
-      await fs.rm(file.path, { force: true });
+      await cleanupStagedUpload(file);
       response.status(400).json({
         error: {
           code: "BAD_REQUEST",
@@ -238,7 +245,12 @@ apiRouter.post("/items/upload", upload.single("file"), async (request, response,
 
     const now = new Date().toISOString();
     const itemId = createItemId();
-    const filePath = await moveUploadIntoContractPath(file.path, itemId, now);
+    let filePath: string | undefined;
+    try {
+      filePath = await moveUploadIntoContractPath(file.path, itemId, now);
+    } finally {
+      await cleanupStagedUpload(file);
+    }
     const item: PocketItem = {
       id: itemId,
       kind: inferKind(file.mimetype, toLocalSource(origin)),
@@ -394,6 +406,54 @@ apiRouter.delete("/items/:itemId", async (request, response, next) => {
   }
 });
 
+apiRouter.post("/ble/send/:itemId", async (request, response, next) => {
+  try {
+    const auth = await requirePairCode(request);
+    if (!auth.ok) {
+      response.status(401).json(unauthorizedError());
+      return;
+    }
+
+    const metadata = await readMetadata();
+    const item = metadata.items.find((candidate) => candidate.id === request.params.itemId);
+    if (!item) {
+      response.status(404).json({
+        error: { code: "NOT_FOUND", message: "item not found" }
+      });
+      return;
+    }
+
+    const share: ShareRequest = {
+      id: nanoid(),
+      itemId: item.id,
+      target: "phone",
+      status: "queued",
+      createdAt: new Date().toISOString()
+    };
+    const transfer = await queueBleTransfer(item, share);
+    if (!transfer.ok) {
+      response.status(transfer.status).json({ error: transfer.error });
+      return;
+    }
+
+    const updatedItem = await updateItem({
+      ...item,
+      sharedToMobile: true,
+      updatedAt: share.createdAt
+    });
+    await addShare(share);
+
+    broadcast({ type: "share.queued", share });
+    broadcast({ type: "item.updated", item: updatedItem });
+    response.json({
+      item: toUpstreamItem(updatedItem),
+      transfer: transfer.transfer
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 apiRouter.get("/items/:itemId/download", async (request, response, next) => {
   try {
     const auth = await requirePairCode(request);
@@ -413,9 +473,9 @@ apiRouter.get("/items/:itemId/download", async (request, response, next) => {
 
     const resolvedFilePath = path.resolve(item.filePath);
     const inboxRoot = path.resolve(config.inboxDir);
-    if (!resolvedFilePath.startsWith(`${inboxRoot}${path.sep}`)) {
-      response.status(403).json({
-        error: { code: "UNAUTHORIZED", message: "file is outside PocketInbox" }
+    if (!isPathInsideDirectory(inboxRoot, resolvedFilePath)) {
+      response.status(404).json({
+        error: { code: "NOT_FOUND", message: "downloadable file not found" }
       });
       return;
     }
@@ -524,6 +584,38 @@ apiRouter.post("/ble/status", async (request, response, next) => {
   }
 });
 
+apiRouter.post("/ble/rssi", async (request, response, next) => {
+  try {
+    const auth = await requirePairCode(request);
+    if (!auth.ok) {
+      response.status(401).json(unauthorizedError());
+      return;
+    }
+
+    const rssi = request.body.rssi;
+    if (typeof rssi !== "number" || !Number.isFinite(rssi)) {
+      response.status(400).json({
+        error: { code: "BAD_REQUEST", message: "rssi must be a number" }
+      });
+      return;
+    }
+
+    const deviceName = typeof request.body.deviceName === "string" && request.body.deviceName.trim()
+      ? request.body.deviceName.trim()
+      : "PocketBridge Mobile";
+    const bleStatus = setBleRssi(deviceName, rssi);
+
+    broadcast({
+      type: "trust.changed",
+      trusted: bleStatus.status === "trusted",
+      reason: `BLE RSSI ${rssi}: ${bleStatus.status}`
+    });
+    response.json(bleStatus);
+  } catch (error) {
+    next(error);
+  }
+});
+
 function createPairCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -584,6 +676,21 @@ async function moveUploadIntoContractPath(sourcePath: string, itemId: string, cr
   await fs.mkdir(targetDir, { recursive: true });
   await fs.rename(sourcePath, targetPath);
   return targetPath;
+}
+
+function uploadStagingDir(): string {
+  return path.join(config.dataDir, "tmp", "uploads");
+}
+
+async function cleanupStagedUpload(file: Express.Multer.File): Promise<void> {
+  if (file.path) {
+    await fs.rm(file.path, { force: true });
+  }
+}
+
+function isPathInsideDirectory(root: string, candidate: string): boolean {
+  const relativePath = path.relative(root, candidate);
+  return Boolean(relativePath) && !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
 }
 
 async function requirePairCode(request: {
@@ -759,7 +866,7 @@ async function removeInboxArtifact(item: PocketItem): Promise<void> {
 
   const resolvedFilePath = path.resolve(item.filePath);
   const inboxRoot = path.resolve(config.inboxDir);
-  if (!resolvedFilePath.startsWith(`${inboxRoot}${path.sep}`)) {
+  if (!isPathInsideDirectory(inboxRoot, resolvedFilePath)) {
     return;
   }
 

@@ -100,7 +100,10 @@ test("upstream contract demo flow runs through QR, /api, /ws, knowledge, and BLE
       tags: ["contract", "knowledge"]
     }, authHeaders);
     assert.equal(exported.item.status, "saved_to_knowledge");
-    assert.match(exported.item.knowledgePath, /upstream-contract-vault\/inbox\/2026-06-27-contract-demo-idea-itm_[a-z0-9_-]+\.md$/);
+    assert.match(
+      exported.item.knowledgePath,
+      new RegExp(`upstream-contract-vault/inbox/${textItem.item.createdAt.slice(0, 10)}-contract-demo-idea-itm_[a-z0-9_-]+\\.md$`)
+    );
     assert.match(await fs.readFile(exported.item.knowledgePath, "utf8"), /PocketBridge can move ideas/);
     const knowledgeEvent = await waitForMessage(received, "knowledge.saved");
     assert.equal(knowledgeEvent.data.item.id, textItem.item.id);

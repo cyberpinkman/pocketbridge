@@ -174,15 +174,22 @@ test("/ws rejects missing or invalid upstream client roles", async () => {
     const address = server.address();
     assert.equal(typeof address, "object");
 
-    const missingClient = new WebSocket(`ws://127.0.0.1:${address.port}/ws?pairCode=123456`);
-    const missingClose = await waitForClose(missingClient);
-    assert.equal(missingClose.code, 1008);
-    assert.equal(missingClose.reason, "Invalid client");
-
-    const invalidClient = new WebSocket(`ws://127.0.0.1:${address.port}/ws?pairCode=123456&client=lan-check`);
-    const invalidClose = await waitForClose(invalidClient);
-    assert.equal(invalidClose.code, 1008);
-    assert.equal(invalidClose.reason, "Invalid client");
+    for (const url of [
+      `ws://127.0.0.1:${address.port}/ws?pairCode=123456`,
+      `ws://127.0.0.1:${address.port}/ws?pairCode=123456&client=browser`,
+      `ws://127.0.0.1:${address.port}/ws?pairCode=123456&client=lan-check`
+    ]) {
+      const client = new WebSocket(url);
+      try {
+        const closed = await waitForClose(client);
+        assert.equal(closed.code, 1008);
+        assert.equal(closed.reason, "Invalid client");
+      } finally {
+        if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) {
+          client.close();
+        }
+      }
+    }
   } finally {
     await writeMetadata(originalMetadata);
     await new Promise((resolve) => websocketServer.close(resolve));
@@ -205,19 +212,17 @@ async function waitForMessage(received, type) {
 }
 
 async function waitForClose(client) {
-  return await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
       client.close();
       reject(new Error("Timed out waiting for websocket close"));
     }, 1000);
-
     client.once("close", (code, reason) => {
-      clearTimeout(timer);
+      clearTimeout(timeout);
       resolve({ code, reason: reason.toString() });
     });
-
     client.once("error", (error) => {
-      clearTimeout(timer);
+      clearTimeout(timeout);
       reject(error);
     });
   });
