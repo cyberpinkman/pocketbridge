@@ -4,44 +4,58 @@ import SwiftUI
 @MainActor
 final class DemoLockShieldController {
   private var windows: [NSWindow] = []
+  private var showing = false
 
   var isVisible: Bool {
-    !windows.isEmpty
+    showing
   }
 
   func show(status: AgentStatus?, onUnlock: @escaping () -> Void) {
-    guard windows.isEmpty else {
+    guard !showing else {
       return
     }
 
     let screens = NSScreen.screens.isEmpty ? [NSScreen.main].compactMap { $0 } : NSScreen.screens
-    windows = screens.map { screen in
-      let window = NSWindow(
-        contentRect: screen.frame,
-        styleMask: [.borderless],
-        backing: .buffered,
-        defer: false,
-        screen: screen
-      )
-      window.contentView = NSHostingView(rootView: DemoLockShieldView(status: status, onUnlock: onUnlock))
-      window.backgroundColor = .black
-      window.isOpaque = true
-      window.level = .screenSaver
-      window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-      window.ignoresMouseEvents = false
-      window.makeKeyAndOrderFront(nil)
-      return window
+    if windows.count != screens.count {
+      windows = screens.map(makeWindow)
     }
 
+    for (window, screen) in zip(windows, screens) {
+      window.setFrame(screen.frame, display: false)
+      window.contentView = NSHostingView(rootView: DemoLockShieldView(status: status, onUnlock: onUnlock))
+      window.makeKeyAndOrderFront(nil)
+    }
+
+    showing = true
     NSApplication.shared.activate(ignoringOtherApps: true)
   }
 
   func hide() {
+    guard showing else {
+      return
+    }
+
+    showing = false
     for window in windows {
       window.orderOut(nil)
-      window.close()
     }
-    windows.removeAll()
+  }
+
+  private func makeWindow(for screen: NSScreen) -> NSWindow {
+    let window = NSWindow(
+      contentRect: screen.frame,
+      styleMask: [.borderless],
+      backing: .buffered,
+      defer: false,
+      screen: screen
+    )
+    window.backgroundColor = .black
+    window.isOpaque = true
+    window.level = .screenSaver
+    window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+    window.ignoresMouseEvents = false
+    window.isReleasedWhenClosed = false
+    return window
   }
 }
 

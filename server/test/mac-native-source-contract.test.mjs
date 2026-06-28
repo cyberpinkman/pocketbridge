@@ -8,6 +8,10 @@ test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls",
   const swiftPackage = await fs.readFile("apps/mac_desktop/native/Package.swift", "utf8");
   const launcher = await fs.readFile("PocketBridge.command", "utf8");
   const appBundleScript = await fs.readFile("apps/mac_desktop/native/scripts/build-app-bundle.sh", "utf8");
+  const demoShieldController = await fs.readFile(
+    "apps/mac_desktop/native/Sources/PocketBridgeMacClient/DemoLockShieldController.swift",
+    "utf8"
+  );
   const sourceDir = "apps/mac_desktop/native/Sources/PocketBridgeMacClient";
   const files = await fs.readdir(sourceDir);
   const source = (
@@ -37,6 +41,9 @@ test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls",
   assert.match(source, /button\.title = "PB OK"/);
   assert.match(source, /button\.title = "PB LOCK"/);
   assert.match(source, /applicationShouldTerminateAfterLastWindowClosed/);
+  assert.match(source, /applicationShouldTerminate\(_ sender: NSApplication\)/);
+  assert.match(source, /terminateCancel/);
+  assert.match(source, /allowTermination = true/);
   assert.match(source, /Open PocketBridge/);
   assert.match(source, /Auto Demo Lock/);
   assert.match(source, /Quit PocketBridge/);
@@ -57,6 +64,9 @@ test("Native Mac client unifies bridge, BLE, pairing, inbox, and demo controls",
   assert.match(source, /\/lock/);
   assert.match(source, /QRCodeView/);
   assert.match(source, /DemoLockShieldController/);
+  assert.match(demoShieldController, /isReleasedWhenClosed = false/);
+  assert.match(demoShieldController, /orderOut\(nil\)/);
+  assert.doesNotMatch(demoShieldController, /window\.close\(\)/);
   assert.match(source, /PocketBridge Locked/);
   assert.match(source, /PocketInbox/);
   assert.match(source, /screencapture/);

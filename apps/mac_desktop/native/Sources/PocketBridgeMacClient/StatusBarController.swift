@@ -155,6 +155,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
   @objc private func quitPocketBridge() {
     model?.stopOwnedStack()
+    AppDelegate.allowTermination = true
     NSApplication.shared.terminate(nil)
   }
 }

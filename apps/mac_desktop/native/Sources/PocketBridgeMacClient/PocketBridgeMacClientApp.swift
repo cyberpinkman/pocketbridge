@@ -25,6 +25,7 @@ struct PocketBridgeMacClientApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
   static var model: BridgeDashboardModel?
+  static var allowTermination = false
   private var keepAliveWindow: NSWindow?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -39,6 +40,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     false
+  }
+
+  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    guard Self.allowTermination else {
+      StatusBarController.shared.showExistingDashboardWindow()
+      return .terminateCancel
+    }
+    return .terminateNow
   }
 
   private func installKeepAliveWindow() {
