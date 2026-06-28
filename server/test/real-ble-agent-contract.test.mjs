@@ -22,6 +22,7 @@ test("real BLE agent contract documents the non-simulated transfer and PocketKey
 
   assert.equal(contract.transportMode, "agent");
   assert.equal(contract.http.transferEndpoint, "/transfers");
+  assert.equal(contract.http.statusEndpoint, "/status");
   assert.equal(contract.ble.transferService.name, "PocketBridgeTransferService");
   assert.equal(contract.ble.pocketKeyService.name, "PocketKeyService");
   assert.match(contract.ble.transferService.uuid, /^[0-9a-f-]{36}$/i);

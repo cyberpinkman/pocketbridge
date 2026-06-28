@@ -14,7 +14,23 @@ npm install
 
 The canonical Node bridge now runs from the repository root. The older `server/` subpackage is not the primary entrypoint.
 
-## Start The Bridge
+## Start The Mac Client
+
+Use the native Mac client for the integrated demo:
+
+```bash
+npm run mac:client
+```
+
+The client starts or detects the local Node bridge and the real BLE agent, shows the pairing QR code, PocketInbox, native screen capture, file upload, phone handoff, knowledge export, PocketKey RSSI, and lock controls in one window.
+
+Build it without launching:
+
+```bash
+npm run mac:client:build
+```
+
+## Start The Bridge Directly
 
 ```bash
 npm install
@@ -37,13 +53,14 @@ PB_PUBLIC_HOST=<Mac-LAN-IP> npm run demo:lan-check
 
 ## Demo Surfaces
 
-- Mac Web UI: `http://<Mac-LAN-IP>:3000/`
+- Native Mac client: `npm run mac:client`
+- Mac Web UI fallback: `http://<Mac-LAN-IP>:3000/`
 - Mobile browser fallback: `http://<Mac-LAN-IP>:3000/mobile.html`
 - Flutter Android app: `apps/mobile_flutter/`
 - Snapzy watch folder: `data/watch/snapzy/`
 - Knowledge export: `data/obsidian/PocketBridge/`
 
-The Mac Web UI and Flutter app share the same contract:
+The native Mac client, Web fallback, and Flutter app share the same contract:
 
 - `GET /api/pairing`
 - `GET /api/pairing/qr.svg?pairCode=<code>`

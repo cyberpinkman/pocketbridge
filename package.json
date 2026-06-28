@@ -15,6 +15,8 @@
     "demo:ble-agent": "npm run build && node dist/server/scripts/ble-agent-demo-check.js",
     "demo:ready": "npm run build && node dist/server/scripts/demo-ready.js",
     "demo:lan-check": "npm run build && node dist/server/scripts/lan-check.js",
+    "mac:client": "swift run --package-path apps/mac_desktop/native PocketBridgeMacClient",
+    "mac:client:build": "swift build --package-path apps/mac_desktop/native -c release",
     "test": "npm run build && node --test --test-concurrency=1 server/test/*.mjs"
   },
   "dependencies": {

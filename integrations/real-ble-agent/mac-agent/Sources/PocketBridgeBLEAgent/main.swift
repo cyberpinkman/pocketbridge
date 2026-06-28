@@ -129,6 +129,7 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
   private var pendingTransfers: [PendingTransfer] = []
   private var subscribedCentrals: Set<CBCentral> = []
   private var lastPocketKeySignalAt: Date?
+  private var lastPocketKeyRssi: Int?
   private var pocketKeyState: PocketKeyState = .unknown
   private var pocketKeyTimer: DispatchSourceTimer?
   private var lockIssuedForCurrentLoss = false
@@ -223,6 +224,7 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
 
     agentLog("PocketKey RSSI \(rssi) from \(peripheral.identifier)")
     lastPocketKeySignalAt = Date()
+    lastPocketKeyRssi = rssi
 
     if rssi <= thresholds.lockedRssi {
       updatePocketKeyState(.locked, reason: "RSSI \(rssi) <= \(thresholds.lockedRssi)", shouldLock: true)
@@ -270,6 +272,11 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
         return
       }
 
+      if requestText.hasPrefix("GET /status ") || requestText.hasPrefix("GET /health ") {
+        self.respond(connection, status: 200, body: self.statusBody())
+        return
+      }
+
       if requestText.hasPrefix("POST /lock ") {
         self.lockMac()
         self.respond(connection, status: 200, body: #"{"status":"locked"}"#)
@@ -296,6 +303,15 @@ final class PocketBridgeBLEAgent: NSObject, CBPeripheralManagerDelegate, CBCentr
         self.respond(connection, status: 422, body: #"{"error":"invalid transfer"}"#)
       }
     }
+  }
+
+  private func statusBody() -> String {
+    let lastSeenAge = lastPocketKeySignalAt.map { Int(Date().timeIntervalSince($0)) }
+    let lastRssi = lastPocketKeyRssi.map(String.init) ?? "null"
+    let age = lastSeenAge.map(String.init) ?? "null"
+    return """
+    {"ok":true,"service":"PocketBridgeBLEAgent","pocketKey":{"state":"\(pocketKeyState.rawValue)","lastRssi":\(lastRssi),"lastSeenAgeSeconds":\(age),"thresholds":{"trustedRssi":\(thresholds.trustedRssi),"lockedRssi":\(thresholds.lockedRssi),"awayAfterSeconds":\(Int(thresholds.awayAfterSeconds)),"lockAfterSeconds":\(Int(thresholds.lockAfterSeconds))}},"transfer":{"pending":\(pendingTransfers.count),"subscribers":\(subscribedCentrals.count)}}
+    """
   }
 
   private func queue(_ request: TransferRequest) throws -> TransferResponse {

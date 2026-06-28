@@ -11,15 +11,15 @@ Mac = local-first data base and personal knowledge brain.
 
 Implemented locally:
 
-- Mac local service, Desktop page, phone browser fallback, QR/pair-code pairing, WebSocket sync.
+- Native Mac client, Mac local service, phone browser fallback, QR/pair-code pairing, WebSocket sync.
 - Phone/Mac text and file upload into PocketInbox.
 - Local JSON storage under `data/metadata.json` and files under `data/inbox/`.
 - Knowledge export into `data/obsidian/PocketBridge/`.
-- Built-in Capture Studio using browser `getDisplayMedia`, canvas annotation, and direct PocketInbox upload.
+- Native Mac screen capture and direct PocketInbox upload.
 - Bluetooth demo transfer through `Send by Bluetooth`, backed by `POST /api/ble/send/:itemId`.
-- Mac-side real BLE Agent handoff rehearsal through `npm run demo:ble-agent`.
+- Mac-side real BLE Agent status through the native client and `/status`.
 - Flutter Android real BLE demo controls: `Start BLE Demo` and `Stop BLE`.
-- Standalone PocketKey states through Bluetooth RSSI and `/api/ble/rssi`: `trusted`, `away`, `locked`.
+- Standalone PocketKey states through Bluetooth RSSI: `trusted`, `away`, `locked`.
 - Third-party Snapzy and BLEUnlock bridges remain compatibility paths only; they are not required for the final demo.
 
 Future-facing:
@@ -54,16 +54,10 @@ http://<Mac-LAN-IP>:3000/mobile.html
 ## Start
 
 ```bash
-PB_PUBLIC_HOST=<Mac-LAN-IP> npm run dev
+npm run mac:client
 ```
 
-Open the Mac UI at:
-
-```text
-http://<Mac-LAN-IP>:3000/
-```
-
-The page should show the pairing QR code, pair payload, PocketInbox, Capture Studio, PocketKey controls, and event log.
+Click `Start` in the native Mac client. It starts or detects the Node bridge and BLE agent, then shows the pairing QR code, pair payload, PocketInbox, native capture, PocketKey RSSI, lock threshold, and activity log in one window.
 
 ## Pair Phone
 
@@ -83,36 +77,35 @@ Confirm the phone connects over `/ws?pairCode=<code>&client=mobile`.
 
 ## Capture Studio
 
-In the Mac UI:
+In the native Mac client:
 
-1. Click `Capture screen`.
-2. Choose a screen or window in the browser permission sheet.
-3. Draw on the captured image in Capture Studio.
-4. Click `Save capture`.
+1. Click `Capture Screen`.
+2. Choose a region, screen, or window in the macOS capture UI.
+3. Confirm the captured image appears in PocketInbox.
 
 Expected signs:
 
-- PocketInbox shows a new image item from `PocketBridge Capture`.
+- PocketInbox shows a new image item from `PocketBridge Mac Client`.
 - The file is stored under `data/inbox/YYYY-MM-DD/<itemId>/original`.
 - The item can be sent to the phone and exported to the knowledge base.
 
-This replaces the Snapzy dependency for the final demo. The Snapzy watch-folder bridge can still be used as a compatibility adapter after the standalone demo is green.
+This replaces the browser Capture Studio and Snapzy dependency for the final demo. The Snapzy watch-folder bridge remains a compatibility adapter.
 
 ## Mac To Phone
 
-1. In the Mac UI, select an item.
-2. Click the action that shares the item to mobile.
+1. In the native Mac client, select an item.
+2. Click `Send to Phone`.
 3. Refresh the phone shared list.
 4. Download the file-backed item on Flutter and show download progress.
 
 ## Bluetooth Send To Bound Phone
 
-Select the annotated capture item in PocketInbox, then click `Send by Bluetooth`.
+Select the captured item in PocketInbox, then click `Send by Bluetooth`.
 
 Expected signs:
 
 - Phone Outbox count increases on Mac.
-- Event Log shows a Bluetooth queued transfer.
+- Activity log shows the BLE queued transfer and chunk size.
 - The phone sees the item through `GET /api/items?sharedToMobile=true`.
 - The API path used is `POST /api/ble/send/<itemId>`.
 - File download uses `GET /api/items/:id/download`.
@@ -137,20 +130,19 @@ Real Android BLE path:
 ## Knowledge Export
 
 1. Select an inbox item on Mac.
-2. Export it to the knowledge base.
+2. Click `Save Knowledge`.
 3. Confirm the item shows a path under `data/obsidian/PocketBridge`.
 4. Confirm the Markdown contains `## Summary`, `## Content`, source frontmatter, and any attached asset link.
 
 ## PocketKey
 
-Use the paired phone page first:
+Use the Android app BLE demo first:
 
-1. Open `http://<Mac-LAN-IP>:3000/mobile.html` on the phone.
-2. Pair it with the Mac.
-3. Keep `Bluetooth RSSI` near `-50 dBm`.
-4. Watch the Mac PocketKey panel switch to trusted/unlocked.
-5. Drag `Bluetooth RSSI` below `-85 dBm`.
-6. Watch the Mac PocketKey panel switch to locked.
+1. Pair the phone with the QR code shown in the native Mac client.
+2. Tap `Start BLE Demo` on Android.
+3. Keep the phone close and watch native Mac client show `trusted`.
+4. Move the phone away or shield it until RSSI drops to `-78 dBm` or lower.
+5. Watch the native Mac client show `locked`; macOS receives the lock command from the BLE agent.
 
 Expected status flow:
 
@@ -160,11 +152,11 @@ trusted -> away -> locked
 
 RSSI thresholds:
 
-- `rssi >= -65`: trusted / unlocked
-- `-85 < rssi < -65`: away
-- `rssi <= -85`: locked
+- `rssi >= -62`: trusted / unlocked
+- `-78 < rssi < -62`: away
+- `rssi <= -78`: locked
 
-The Mac UI also has manual PocketKey buttons for rehearsal, but the primary demo signal comes from PocketBridge Mobile RSSI.
+The native Mac client also has `Lock Mac` for manual rehearsal, but the primary demo signal comes from real Android BLE RSSI.
 
 Optional BLEUnlock compatibility hook:
 
@@ -207,7 +199,7 @@ If Flutter is blocked:
 
 If browser screen capture is blocked:
 
-- Use the built-in file upload control to upload a screenshot image.
+- Use `Upload File` in the native Mac client to upload a screenshot image.
 - Keep the demo wording as PocketBridge Capture, not Snapzy.
 
 If the phone cannot reach the Mac:

@@ -2,7 +2,8 @@
   "transportMode": "agent",
   "http": {
     "defaultBaseUrl": "http://127.0.0.1:41237",
-    "transferEndpoint": "/transfers"
+    "transferEndpoint": "/transfers",
+    "statusEndpoint": "/status"
   },
   "ble": {
     "transferService": {
